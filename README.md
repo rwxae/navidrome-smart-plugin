@@ -2,29 +2,41 @@
 
 ## Architecture
 
-### Collect Statistics
+General overview
 
-#### Determine the most obsessed songs
+Analyze recent listening activity of the user. Determine the songs that
+he is most obsessed with and seed them to AudioMuse AI to build a playlist
+with the most relevant songs.
 
-1. Fetch listens from the last 3-5 days 
-2. Calculate the score for each song using a formula:
+### Determine obsession
 
-Song Score = sum(1 / (hours_elapsed_since_listen + 12))
+1. Fetch user listening history from the last 7-14 days.
+2. Calculate the score for each song using the formula:
+
+Song Score = sum(1 / (1 + hours_since_listen / 168))
 
 3. Sort resulting songs by their score in descending order to determine the most
-obsessed songs. Take the first 3-5 songs from the results.
+obsessed songs. Take the first 3-8 songs from the results.
 
-#### Determine the most obsessed artist
+### Find similar songs
 
-Group songs by their artist and calculate the score:
+Run /api/alchemy with the collected data:
 
-Artist Score = sum(song_score) * ln(unique_songs + 1)
+Playlist = alchemy(obsessed_songs)
 
-#### Define general mood
+### Filter irrelevant music
 
-TODO
+- by library id (optional)
+- by genre (optional)
+- by mood (optional)
 
-## Unsolved problems:
+### Save the playlist
 
-- Mood mismatch
+Map each song to Navidrome ID and save a playlist on the server.
+
+## Future considerations:
+
+- Mood mismatch between songs (select the largest group of songs)
 - Skip unwanted songs like film soundtracks
+- The most recent listens get really high score. I don't like it.
+- Consider user inactivity as a factor?
