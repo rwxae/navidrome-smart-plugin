@@ -1,8 +1,9 @@
+use attohttpc::Session;
 use serde::{Deserialize, Serialize};
 
 pub struct Client {
     api_base: String,
-    access_token: String,
+    session: Session,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -40,25 +41,29 @@ pub struct AlchemyResult {
 }
 
 impl Client {
-    pub fn new(base: &str, token: &str) -> Self {
+    pub fn new(url: &str, token: &str) -> Self {
+        let mut session = Session::new();
+
+        session.header("Authorization", format!("Bearer {}", token));
+        session.header("Content-Type", "application/json");
+
         Self {
-            api_base: base.into(),
-            access_token: token.into(),
+            api_base: url.into(),
+            session,
         }
     }
 
     pub fn search_tracks(&self, query: &str) -> attohttpc::Result<Vec<SearchTrack>> {
-        attohttpc::get(format!("{}/api/search_tracks", self.api_base))
+        self.session
+            .get(format!("{}/api/search_tracks", self.api_base))
             .param("search_query", query)
-            .header("Authorization", format!("Bearer {}", self.access_token))
             .send()?
             .json()
     }
 
     pub fn alchemy(&self, body: &AlchemyReqBody) -> attohttpc::Result<AlchemyResponse> {
-        attohttpc::post(format!("{}/api/alchemy", self.api_base))
-            .header("Authorization", format!("Bearer {}", self.access_token))
-            .header("Content-Type", "application/json")
+        self.session
+            .post(format!("{}/api/alchemy", self.api_base))
             .json(&body)?
             .send()?
             .json()
