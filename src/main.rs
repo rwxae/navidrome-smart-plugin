@@ -16,7 +16,7 @@ fn calc_score(v: &[UserListensListen]) -> f64 {
                 .unwrap()
                 .as_secs_f64()
                 / 3600.0;
-            1.0 / (hours + 24.0)
+            1.0 / (1.0 + hours / 168.0)
         })
         .sum()
 }
