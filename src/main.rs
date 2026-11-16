@@ -9,15 +9,21 @@ use listenbrainz::raw::{
     response::{UserListensListen, UserListensTrackMetadata},
 };
 
-use my_vibe_research::audiomuse::{self, AlchemyItem, AlchemyReqBody};
+use my_vibe_research::{
+    audiomuse::{self, AlchemyItem, AlchemyReqBody},
+    navidrome,
+};
 
 // TODO: implement pagination and get songs from 7 days
-const LISTENS_COUNT: u64 = 500;
-const SEED_COUNT: usize = 3;
+const LISTENS_COUNT: u64 = 1000;
+const SEED_COUNT: usize = 5;
 
-const PLAYLIST_MAX_SIZE: u32 = 75;
+const PLAYLIST_MAX_SIZE: u32 = 50;
 const ALCHEMY_SUBSTRACT_DISTANCE: f32 = 0.2;
-const ALCHEMY_TEMPERATURE: f32 = 0.3;
+const ALCHEMY_TEMPERATURE: f32 = 0.5;
+
+const SUBSONIC_API_VERSION: &str = "1.16.1";
+const APP_NAME: &str = "my-vibe";
 
 fn calc_song_score(listens: &[UserListensListen]) -> f64 {
     listens
@@ -58,14 +64,21 @@ fn get_top_lb_songs(
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let token = std::env::args().nth(1).expect("Provide AudioMuse AI token");
-    let user = "rwxae";
-    let am_url = "https://audiomuse-ai.iswebdev.ru/";
+    let lb_user = std::env::var("LISTENBRAINZ_USERNAME")?;
+
+    let am_url = std::env::var("AUDIOMUSE_URL")?;
+    let am_token = std::env::var("AUDIOMUSE_TOKEN")?;
+
+    let nm_url = std::env::var("SUBSONIC_URL")?;
+    let nm_user = std::env::var("SUBSONIC_USERNAME")?;
+    let nm_pass = std::env::var("SUBSONIC_PASSWORD")?;
 
     let lb_client = listenbrainz::raw::Client::new();
-    let am_client = audiomuse::Client::new(am_url, &token);
+    let am_client = audiomuse::Client::new(&am_url, &am_token);
+    let nm_client =
+        navidrome::Client::new(&nm_url, APP_NAME, SUBSONIC_API_VERSION, &nm_user, &nm_pass);
 
-    let top_songs = get_top_lb_songs(&lb_client, user)?;
+    let top_songs = get_top_lb_songs(&lb_client, &lb_user)?;
 
     let mut items = Vec::with_capacity(top_songs.len());
 
@@ -89,9 +102,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         temperature: ALCHEMY_TEMPERATURE,
     };
 
-    let res = am_client.alchemy(&alchemy_body)?;
+    let alchemy_result = am_client.alchemy(&alchemy_body)?;
 
-    dbg!(res);
+    nm_client.create_playlist(
+        "My Vibe",
+        alchemy_result.results.iter().map(|i| i.item_id.clone()),
+    )?;
 
     Ok(())
 }

@@ -8,3 +8,5 @@ itertools = "0.15.0"
 listenbrainz = "0.8.1"
 attohttpc = { version = "0.28.5", default-features = false, features = ["json", "compress", "tls-rustls-webpki-roots"] }
 serde = { version = "1.0.140", features = ["derive"] }
+md5 = "0.8.1"
+rand = "0.10.4"

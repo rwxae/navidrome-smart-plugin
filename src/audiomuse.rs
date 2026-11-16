@@ -37,7 +37,7 @@ pub struct AlchemyResponse {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct AlchemyResult {
-    item_id: String,
+    pub item_id: String,
 }
 
 impl Client {
