@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use attohttpc::Session;
 use serde::{Deserialize, Serialize};
 
@@ -105,6 +107,17 @@ impl From<GetScoreResponse> for SongScore {
     }
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct CentroidMetadata {
+    pub cluster_id: u32,
+    pub index: u32,
+    pub mood_score: f64,
+    pub n_songs: u32,
+    pub top_tags: Vec<String>,
+}
+
+pub type MoodCentroidsResponse = HashMap<String, Vec<CentroidMetadata>>;
+
 impl Client {
     pub fn new(url: &str, token: &str) -> Self {
         let mut session = Session::new();
@@ -144,5 +157,17 @@ impl Client {
             .param("id", id)
             .send()?
             .json()
+    }
+
+    pub fn mood_centroids(&self, mood: Option<&str>) -> attohttpc::Result<MoodCentroidsResponse> {
+        let mut request = self
+            .session
+            .get(format!("{}/api/mood_centroids", self.api_base));
+
+        if let Some(mood) = mood {
+            request = request.param("mood", mood);
+        }
+
+        request.send()?.json()
     }
 }
