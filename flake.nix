@@ -12,6 +12,8 @@
       devShells = eachSystem (pkgs: {
         default = pkgs.mkShell {
           packages = with pkgs; [
+            openssl
+            pkg-config
             cargo
             cargo-expand
             clippy
