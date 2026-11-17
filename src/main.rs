@@ -100,10 +100,36 @@ fn get_mood(
         *weight /= total_recency_weight;
     }
 
-    dbg!(mood, genres);
+    let Some((best_mood, _)) = mood.iter().max_by(|a, b| a.1.total_cmp(b.1)) else {
+        panic!("no mood found")
+    };
 
-    // TODO
-    Ok("danceable:32".into())
+    let centroids = am_client.mood_centroids(Some(best_mood))?;
+    let Some(clusters) = centroids.get(best_mood) else {
+        panic!("no centroids for mood {best_mood}")
+    };
+
+    // TODO: it is very naive approach.
+    // One of the issues with this algorithm is that
+    // it does not take into account the fact that
+    // some tags have more impact than other.
+    // Some tags appear almost in every cluster
+    // and some are rare.
+    let best_cluster = clusters
+        .iter()
+        .map(|cluster| {
+            let score: f64 = cluster
+                .top_tags
+                .iter()
+                .map(|tag| genres.get(tag).unwrap_or(&0.0))
+                .sum();
+            (score, cluster)
+        })
+        .max_by(|a, b| a.0.total_cmp(&b.0))
+        .map(|(_, cluster)| cluster.cluster_id)
+        .expect("no clusters found");
+
+    Ok(format!("{}:{}", best_mood, best_cluster))
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
