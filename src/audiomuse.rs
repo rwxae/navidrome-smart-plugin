@@ -54,15 +54,7 @@ pub struct SongGenre {
     pub weight: f64,
 }
 
-#[derive(Default, Debug)]
-pub struct SongMood {
-    pub aggressive: f64,
-    pub happy: f64,
-    pub party: f64,
-    pub relaxed: f64,
-    pub sad: f64,
-    pub danceable: f64,
-}
+pub type SongMood = HashMap<String, f64>;
 
 #[derive(Debug)]
 pub struct SongScore {
@@ -72,24 +64,14 @@ pub struct SongScore {
 
 impl From<GetScoreResponse> for SongScore {
     fn from(value: GetScoreResponse) -> Self {
-        let mut mood = SongMood::default();
-        value
+        let mood: SongMood = value
             .other_features
             .split(",")
-            .map(|v| {
+            .filter_map(|v| {
                 v.split_once(":")
-                    .map(|(n, w)| (n, w.parse::<f64>().unwrap()))
-                    .unwrap()
+                    .and_then(|(n, w)| w.parse::<f64>().ok().map(|weight| (n.to_string(), weight)))
             })
-            .for_each(|(n, w)| match n {
-                "danceable" => mood.danceable = w,
-                "aggressive" => mood.aggressive = w,
-                "happy" => mood.happy = w,
-                "party" => mood.party = w,
-                "relaxed" => mood.relaxed = w,
-                "sad" => mood.sad = w,
-                _ => (),
-            });
+            .collect();
         let genres = value
             .mood_vector
             .split(",")

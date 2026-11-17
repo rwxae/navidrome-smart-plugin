@@ -65,7 +65,7 @@ fn get_mood(
     }
 
     let listens = listens.iter().take(MOOD_SONGS_COUNT);
-    let mut mood = SongMood::default();
+    let mut mood: SongMood = HashMap::new();
     let mut genres: HashMap<String, f64> = HashMap::new();
     let mut total_recency_weight = 0.0;
 
@@ -82,12 +82,9 @@ fn get_mood(
         let recency_weight = 2.0f64.powf(-hours / 24.0);
         total_recency_weight += recency_weight;
 
-        mood.aggressive += recency_weight * song_score.mood.aggressive;
-        mood.happy += recency_weight * song_score.mood.happy;
-        mood.party += recency_weight * song_score.mood.party;
-        mood.relaxed += recency_weight * song_score.mood.relaxed;
-        mood.sad += recency_weight * song_score.mood.sad;
-        mood.danceable += recency_weight * song_score.mood.danceable;
+        for (key, value) in song_score.mood {
+            *mood.entry(key).or_insert(0.0) += recency_weight * value;
+        }
 
         for genre in song_score.genres {
             let value = recency_weight * genre.weight;
@@ -95,14 +92,11 @@ fn get_mood(
         }
     }
 
-    mood.aggressive /= total_recency_weight;
-    mood.happy /= total_recency_weight;
-    mood.party /= total_recency_weight;
-    mood.relaxed /= total_recency_weight;
-    mood.sad /= total_recency_weight;
-    mood.danceable /= total_recency_weight;
-
     for weight in genres.values_mut() {
+        *weight /= total_recency_weight;
+    }
+
+    for weight in mood.values_mut() {
         *weight /= total_recency_weight;
     }
 
