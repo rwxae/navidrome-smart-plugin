@@ -15,12 +15,12 @@ use my_vibe_research::{
 };
 
 // TODO: implement pagination and get songs from 7 days
-const LISTENS_COUNT: u64 = 1000;
+const LISTENS_COUNT: u64 = 500;
 const SEED_COUNT: usize = 5;
 
 const PLAYLIST_MAX_SIZE: u32 = 50;
 const ALCHEMY_SUBSTRACT_DISTANCE: f32 = 0.2;
-const ALCHEMY_TEMPERATURE: f32 = 0.5;
+const ALCHEMY_TEMPERATURE: f32 = 1.0;
 
 const SUBSONIC_API_VERSION: &str = "1.16.1";
 const APP_NAME: &str = "my-vibe";
@@ -83,8 +83,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut items = Vec::with_capacity(top_songs.len());
 
     for song in &top_songs {
-        let candidates =
-            am_client.search_tracks(&format!("{} {}", song.artist_name, song.track_name))?;
+        let song = format!("{} {}", song.artist_name, song.track_name);
+        let candidates = am_client.search_tracks(&song)?;
         let Some(track) = candidates.first() else {
             continue;
         };
