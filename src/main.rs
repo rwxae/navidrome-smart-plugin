@@ -4,7 +4,7 @@ use itertools::Itertools;
 use listenbrainz::raw::response::{UserListensListen, UserListensTrackMetadata};
 
 use my_vibe_research::{
-    audiomuse::{self, AlchemyItem, AlchemyReqBody, SongScore},
+    audiomuse::{self, AlchemyItem, AlchemyReqBody, MoodCentroidsResponse, SongScore},
     navidrome,
 };
 
@@ -54,11 +54,58 @@ fn get_top_lb_songs(
     Ok(songs)
 }
 
+fn get_best_cluster(
+    centroids: &MoodCentroidsResponse,
+    genres: &HashMap<String, f64>,
+    mood: &str,
+) -> u32 {
+    let Some(clusters) = centroids.get(mood) else {
+        panic!("no centroids for mood {mood}")
+    };
+
+    let mut doc_freq: HashMap<String, usize> = HashMap::new();
+    for cluster in clusters {
+        for tag in &cluster.top_tags {
+            *doc_freq.entry(tag.into()).or_insert(0) += 1;
+        }
+    }
+    let n_clusters = clusters.len() as f64;
+    let idf: HashMap<String, f64> = doc_freq
+        .into_iter()
+        .map(|(tag, df)| {
+            let idf_value = ((n_clusters + 1.0) / (df as f64 + 1.0)).ln() + 1.0;
+            (tag, idf_value)
+        })
+        .collect();
+
+    let user_tf_idf: HashMap<String, f64> = genres
+        .iter()
+        .map(|(genre, &tf)| {
+            let idf_value = idf.get(genre).copied().unwrap_or(0.0);
+            (genre.into(), tf * idf_value)
+        })
+        .collect();
+
+    clusters
+        .iter()
+        .map(|cluster| {
+            let similarity: f64 = cluster
+                .top_tags
+                .iter()
+                .map(|tag| user_tf_idf.get(tag).copied().unwrap_or(0.0))
+                .sum();
+            (similarity, cluster.cluster_id)
+        })
+        .max_by(|a, b| a.0.total_cmp(&b.0))
+        .map(|(_, cluster_id)| cluster_id)
+        .expect("no clusters found")
+}
+
 fn get_mood(
     listens: &[UserListensListen],
     am_client: &audiomuse::Client,
     now: SystemTime,
-) -> Result<String, attohttpc::Error> {
+) -> Result<Vec<String>, attohttpc::Error> {
     // TODO: review errors
     // TODO: introduce a custom error for this app.
     // TODO: it is a terrible check (listens may have no scores in audiomuse database)
@@ -103,55 +150,18 @@ fn get_mood(
         *weight /= total_recency_weight;
     }
 
-    let best_mood = avg_mood
+    let centroids = am_client.mood_centroids(None)?;
+
+    let v = avg_mood
         .iter()
-        .max_by(|a, b| a.1.total_cmp(b.1))
+        .sorted_by(|a, b| b.1.total_cmp(a.1))
+        .take(2)
         .map(|(mood, _)| mood)
-        .unwrap();
-
-    let centroids = am_client.mood_centroids(Some(best_mood))?;
-    let Some(clusters) = centroids.get(best_mood) else {
-        panic!("no centroids for mood {best_mood}")
-    };
-
-    let mut doc_freq: HashMap<String, usize> = HashMap::new();
-    for cluster in clusters {
-        for tag in &cluster.top_tags {
-            *doc_freq.entry(tag.into()).or_insert(0) += 1;
-        }
-    }
-    let n_clusters = clusters.len() as f64;
-    let idf: HashMap<String, f64> = doc_freq
-        .into_iter()
-        .map(|(tag, df)| {
-            let idf_value = ((n_clusters + 1.0) / (df as f64 + 1.0)).ln() + 1.0;
-            (tag, idf_value)
-        })
+        .map(|mood| (mood, get_best_cluster(&centroids, &avg_genres, mood)))
+        .map(|(mood, cluster)| format!("{}:{}", mood, cluster))
         .collect();
 
-    let user_tf_idf: HashMap<String, f64> = avg_genres
-        .into_iter()
-        .map(|(genre, tf)| {
-            let idf_value = idf.get(&genre).copied().unwrap_or(0.0);
-            (genre, tf * idf_value)
-        })
-        .collect();
-
-    let best_cluster = clusters
-        .iter()
-        .map(|cluster| {
-            let similarity: f64 = cluster
-                .top_tags
-                .iter()
-                .map(|tag| user_tf_idf.get(tag).copied().unwrap_or(0.0))
-                .sum();
-            (similarity, cluster.cluster_id)
-        })
-        .max_by(|a, b| a.0.total_cmp(&b.0))
-        .map(|(_, cluster_id)| cluster_id)
-        .expect("no clusters found");
-
-    Ok(format!("{}:{}", best_mood, best_cluster))
+    Ok(v)
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -180,16 +190,16 @@ fn main() -> Result<(), Box<dyn Error>> {
         .map(|listen| my_vibe_research::listenbrainz::to_system_time(listen.listened_at))
         .unwrap_or_else(SystemTime::now);
 
-    let mood = get_mood(&listens, &am_client, now)?;
+    let mut items: Vec<AlchemyItem> = get_mood(&listens, &am_client, now)?
+        .iter()
+        .map(|mood| AlchemyItem {
+            id: mood.into(),
+            op: "ADD".into(),
+            r#type: "mood".into(),
+        })
+        .collect();
+
     let top_songs = get_top_lb_songs(&listens, now)?;
-
-    let mut items = Vec::with_capacity(top_songs.len());
-
-    items.push(AlchemyItem {
-        id: mood,
-        op: "ADD".into(),
-        r#type: "mood".into(),
-    });
 
     for song in &top_songs {
         let query = my_vibe_research::listenbrainz::song_query(song);
