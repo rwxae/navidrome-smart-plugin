@@ -10,10 +10,10 @@ use my_vibe_research::{
 
 // TODO: implement pagination and get songs from 7 days
 const LISTENS_COUNT: u64 = 250;
-const MOOD_SONGS_COUNT: usize = 25;
+const MOOD_SONGS_COUNT: usize = 50;
 const SEED_COUNT: usize = 3;
 
-const PLAYLIST_MAX_SIZE: u32 = 50;
+const PLAYLIST_MAX_SIZE: u32 = 100;
 const ALCHEMY_SUBSTRACT_DISTANCE: f32 = 0.2;
 const ALCHEMY_TEMPERATURE: f32 = 1.0;
 
