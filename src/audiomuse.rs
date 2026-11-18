@@ -49,40 +49,27 @@ pub struct GetScoreResponse {
 }
 
 #[derive(Debug)]
-pub struct SongGenre {
-    pub name: String,
-    pub weight: f64,
-}
-
-pub type SongMood = HashMap<String, f64>;
-
-#[derive(Debug)]
 pub struct SongScore {
-    pub mood: SongMood,
-    pub genres: Vec<SongGenre>,
+    pub mood: HashMap<String, f64>,
+    pub genres: HashMap<String, f64>,
 }
 
 impl From<GetScoreResponse> for SongScore {
     fn from(value: GetScoreResponse) -> Self {
-        let mood: SongMood = value
+        let mood = value
             .other_features
             .split(",")
             .filter_map(|v| {
                 v.split_once(":")
-                    .and_then(|(n, w)| w.parse::<f64>().ok().map(|weight| (n.to_string(), weight)))
+                    .and_then(|(n, w)| w.parse::<f64>().ok().map(|v| (n.into(), v)))
             })
             .collect();
         let genres = value
-            .mood_vector
+            .other_features
             .split(",")
-            .map(|v| {
+            .filter_map(|v| {
                 v.split_once(":")
-                    .map(|(n, w)| (n, w.parse::<f64>().unwrap()))
-                    .unwrap()
-            })
-            .map(|(n, weight)| SongGenre {
-                name: n.into(),
-                weight,
+                    .and_then(|(n, w)| w.parse::<f64>().ok().map(|v| (n.into(), v)))
             })
             .collect();
         Self { mood, genres }
