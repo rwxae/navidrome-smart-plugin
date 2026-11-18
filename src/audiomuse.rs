@@ -65,7 +65,7 @@ impl From<GetScoreResponse> for SongScore {
             })
             .collect();
         let genres = value
-            .other_features
+            .mood_vector
             .split(",")
             .filter_map(|v| {
                 v.split_once(":")
