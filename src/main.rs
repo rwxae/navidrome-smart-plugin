@@ -4,7 +4,7 @@ use listenbrainz::raw::response::UserListensListen;
 
 use navidrome_smart_plugin::{
     audiomuse::{self, AlchemyItem, AlchemyReqBody, MoodCentroidsResponse, SongScore},
-    navidrome,
+    navidrome, scrobble,
 };
 
 // TODO: Different users have different activity:
@@ -94,15 +94,13 @@ fn get_mood(
     let mut total_recency_weight = 0.0;
 
     for listen in listens {
-        let query = navidrome_smart_plugin::listenbrainz::song_query(&listen.track_metadata);
+        let query = scrobble::song_query(&listen.track_metadata);
         let track = am_client.search_track(&query)?;
         let Some(track) = track else {
             continue;
         };
         let song_score: SongScore = am_client.get_score(&track.item_id)?.into();
-        let hours = navidrome_smart_plugin::listenbrainz::since_listen(now, listen.listened_at)
-            .as_secs_f64()
-            / 3600.0;
+        let hours = scrobble::since_listen(now, listen.listened_at).as_secs_f64() / 3600.0;
         let recency_weight = 2.0f64.powf(-hours / 24.0);
         total_recency_weight += recency_weight;
 
@@ -164,7 +162,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Just experimenting...
     let now = listens
         .first()
-        .map(|listen| navidrome_smart_plugin::listenbrainz::to_system_time(listen.listened_at))
+        .map(|listen| scrobble::to_system_time(listen.listened_at))
         .unwrap_or_else(SystemTime::now);
 
     let items: Vec<AlchemyItem> = get_mood(&listens, &am_client, now)?
