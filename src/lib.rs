@@ -7,6 +7,11 @@ use std::{collections::HashMap, error::Error, time::SystemTime};
 use listenbrainz::raw::response::UserListensListen;
 
 use audiomuse::{AlchemyItem, AlchemyReqBody, MoodCentroidsResponse, SongScore};
+use nd_pdk::{
+    host::scheduler,
+    lifecycle::InitProvider,
+    scheduler::{CallbackProvider, SchedulerCallbackRequest},
+};
 
 // TODO: Different users have different activity:
 // 1. Heavy user might listen like 100+ songs
@@ -29,6 +34,28 @@ const ALCHEMY_TEMPERATURE: f32 = 1.0;
 
 const SUBSONIC_API_VERSION: &str = "1.16.1";
 const APP_NAME: &str = "navidrome-smart-plugin";
+
+const SCHEDULE_UPDATE_ID: &str = "update";
+
+#[derive(Default)]
+struct SmartPlugin;
+
+impl InitProvider for SmartPlugin {
+    fn on_init(&self) -> Result<(), nd_pdk::lifecycle::Error> {
+        scheduler::schedule_recurring("0 * * * *", SCHEDULE_UPDATE_ID, SCHEDULE_UPDATE_ID).unwrap();
+        Ok(())
+    }
+}
+
+impl CallbackProvider for SmartPlugin {
+    fn on_callback(&self, _req: SchedulerCallbackRequest) -> Result<(), nd_pdk::scheduler::Error> {
+        // TODO: generate playlist
+        Ok(())
+    }
+}
+
+nd_pdk::register_lifecycle_init!(SmartPlugin);
+nd_pdk::register_scheduler_callback!(SmartPlugin);
 
 fn get_best_cluster(
     centroids: &MoodCentroidsResponse,
