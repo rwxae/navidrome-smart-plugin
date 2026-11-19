@@ -1,10 +1,20 @@
-# My Vibe
+# Navidrome Smart Plugin
+
+Analyze listening activity of the user and build smart recommendations
+with [AudioMuse AI](https://github.com/NeptuneHub/AudioMuse-AI).
+
+## Requirements
+
+- ListenBrainz (will be optional when native [Navidrome API](https://www.navidrome.org/docs/usage/features/scrobbling/#scrobble-history) gets stable enough)
+- AudioMuse AI
 
 ## Architecture
 
 General overview
 
-Analyze recent listening activity of the user. Determine the songs that
+TODO (rewrite)
+
+Analyze listening activity of the user. Determine the songs that
 he is most obsessed with and seed them to AudioMuse AI to build a playlist
 with the most relevant songs.
 
@@ -36,7 +46,5 @@ Map each song to Navidrome ID and save a playlist on the server.
 
 ## Future considerations:
 
-- Mood mismatch between songs (select the largest group of songs)
 - Skip unwanted songs like film soundtracks
-- The most recent listens get really high score. I don't like it.
 - Consider user inactivity as a factor?

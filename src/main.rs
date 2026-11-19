@@ -3,7 +3,7 @@ use std::{collections::HashMap, error::Error, time::SystemTime};
 use itertools::Itertools;
 use listenbrainz::raw::response::UserListensListen;
 
-use my_vibe_research::{
+use navidrome_smart_plugin::{
     audiomuse::{self, AlchemyItem, AlchemyReqBody, MoodCentroidsResponse, SongScore},
     navidrome,
 };
@@ -28,7 +28,7 @@ const ALCHEMY_SUBSTRACT_DISTANCE: f32 = 0.2;
 const ALCHEMY_TEMPERATURE: f32 = 1.0;
 
 const SUBSONIC_API_VERSION: &str = "1.16.1";
-const APP_NAME: &str = "my-vibe";
+const APP_NAME: &str = "navidrome-smart-plugin";
 
 fn get_best_cluster(
     centroids: &MoodCentroidsResponse,
@@ -95,13 +95,13 @@ fn get_mood(
     let mut total_recency_weight = 0.0;
 
     for listen in listens {
-        let query = my_vibe_research::listenbrainz::song_query(&listen.track_metadata);
+        let query = navidrome_smart_plugin::listenbrainz::song_query(&listen.track_metadata);
         let track = am_client.search_track(&query)?;
         let Some(track) = track else {
             continue;
         };
         let song_score: SongScore = am_client.get_score(&track.item_id)?.into();
-        let hours = my_vibe_research::listenbrainz::since_listen(now, listen.listened_at)
+        let hours = navidrome_smart_plugin::listenbrainz::since_listen(now, listen.listened_at)
             .as_secs_f64()
             / 3600.0;
         let recency_weight = 2.0f64.powf(-hours / 24.0);
@@ -163,7 +163,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Just experimenting...
     let now = listens
         .first()
-        .map(|listen| my_vibe_research::listenbrainz::to_system_time(listen.listened_at))
+        .map(|listen| navidrome_smart_plugin::listenbrainz::to_system_time(listen.listened_at))
         .unwrap_or_else(SystemTime::now);
 
     let items: Vec<AlchemyItem> = get_mood(&listens, &am_client, now)?
