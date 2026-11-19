@@ -151,7 +151,7 @@ fn get_mood(
         *weight /= total_recency_weight;
     }
 
-    let centroids = am_client.mood_centroids(None)?;
+    let centroids = am_client.mood_centroids()?;
 
     let mut sorted_moods = avg_mood.iter().collect::<Vec<_>>();
     sorted_moods.sort_by(|a, b| b.1.total_cmp(a.1));

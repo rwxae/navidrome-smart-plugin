@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 
-use attohttpc::Session;
+use anyhow::Error;
+use nd_pdk::host::http;
 use serde::{Deserialize, Serialize};
 
 pub struct Client {
     api_base: String,
-    session: Session,
+    access_token: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -88,55 +89,74 @@ pub struct CentroidMetadata {
 pub type MoodCentroidsResponse = HashMap<String, Vec<CentroidMetadata>>;
 
 impl Client {
-    pub fn new(url: &str, token: &str) -> Self {
-        let mut session = Session::new();
-
-        session.header("Authorization", format!("Bearer {}", token));
-        session.header("Content-Type", "application/json");
-
+    pub fn new(url: &str, access_token: &str) -> Self {
         Self {
-            api_base: url.into(),
-            session,
+            api_base: url.to_owned(),
+            access_token: access_token.to_owned(),
         }
     }
 
-    pub fn search_tracks(&self, query: &str) -> attohttpc::Result<Vec<SearchTrackResponse>> {
-        self.session
-            .get(format!("{}/api/search_tracks", self.api_base))
-            .param("search_query", query)
-            .send()?
-            .json()
+    fn headers(&self) -> HashMap<String, String> {
+        HashMap::from([
+            (
+                "Authorization".to_owned(),
+                format!("Bearer {}", self.access_token),
+            ),
+            ("Content-Type".to_owned(), "application/json".to_owned()),
+        ])
     }
 
-    pub fn search_track(&self, query: &str) -> attohttpc::Result<Option<SearchTrackResponse>> {
+    fn get<T>(&self, url: String) -> Result<T, Error>
+    where
+        T: serde::de::DeserializeOwned,
+    {
+        let request = http::HTTPRequest {
+            method: "GET".to_owned(),
+            url,
+            headers: self.headers(),
+            ..Default::default()
+        };
+        let response =
+            http::send(request)?.ok_or_else(|| Error::msg("audiomuse: empty response"))?;
+        Ok(serde_json::from_slice(&response.body)?)
+    }
+
+    fn post_json<T>(&self, url: String, body: &impl Serialize) -> Result<T, Error>
+    where
+        T: serde::de::DeserializeOwned,
+    {
+        let request = http::HTTPRequest {
+            method: "POST".to_owned(),
+            url,
+            headers: self.headers(),
+            body: serde_json::to_vec(body)?,
+            ..Default::default()
+        };
+        let response =
+            http::send(request)?.ok_or_else(|| Error::msg("audiomuse: empty response"))?;
+        Ok(serde_json::from_slice(&response.body)?)
+    }
+
+    pub fn search_tracks(&self, query: &str) -> Result<Vec<SearchTrackResponse>, Error> {
+        self.get(format!(
+            "{}/api/search_tracks?search_query={}",
+            self.api_base, query
+        ))
+    }
+
+    pub fn search_track(&self, query: &str) -> Result<Option<SearchTrackResponse>, Error> {
         Ok(self.search_tracks(query)?.into_iter().next())
     }
 
-    pub fn alchemy(&self, body: &AlchemyReqBody) -> attohttpc::Result<AlchemyResponse> {
-        self.session
-            .post(format!("{}/api/alchemy", self.api_base))
-            .json(&body)?
-            .send()?
-            .json()
+    pub fn alchemy(&self, body: &AlchemyReqBody) -> Result<AlchemyResponse, Error> {
+        self.post_json(format!("{}/api/alchemy", self.api_base), body)
     }
 
-    pub fn get_score(&self, id: &str) -> attohttpc::Result<GetScoreResponse> {
-        self.session
-            .get(format!("{}/external/get_score", self.api_base))
-            .param("id", id)
-            .send()?
-            .json()
+    pub fn get_score(&self, id: &str) -> Result<GetScoreResponse, Error> {
+        self.get(format!("{}/external/get_score?id={}", self.api_base, id))
     }
 
-    pub fn mood_centroids(&self, mood: Option<&str>) -> attohttpc::Result<MoodCentroidsResponse> {
-        let mut request = self
-            .session
-            .get(format!("{}/api/mood_centroids", self.api_base));
-
-        if let Some(mood) = mood {
-            request = request.param("mood", mood);
-        }
-
-        request.send()?.json()
+    pub fn mood_centroids(&self) -> Result<MoodCentroidsResponse, Error> {
+        self.get(format!("{}/api/mood_centroids", self.api_base))
     }
 }

@@ -9,6 +9,8 @@ crate-type = ["cdylib"]
 [dependencies]
 attohttpc = { version = "0.28.5", default-features = false, features = ["json", "compress", "tls-rustls-webpki-roots"] }
 listenbrainz = "0.8.1"
+anyhow = "1.0.104"
+extism-pdk = "1.4.1"
 md5 = "0.8.1"
 nd-pdk = { git = "https://github.com/navidrome/navidrome", subdir = "plugins/pdk/rust/nd-pdk" }
 rand = "0.10.4"
