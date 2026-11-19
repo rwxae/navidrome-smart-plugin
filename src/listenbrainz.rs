@@ -1,6 +1,5 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use itertools::Itertools;
 use listenbrainz::raw::response::UserListensTrackMetadata;
 
 pub fn to_system_time(listened_at: i64) -> SystemTime {
@@ -13,9 +12,11 @@ pub fn since_listen(now: SystemTime, listened_at: i64) -> Duration {
 
 pub fn song_query(listen: &UserListensTrackMetadata) -> String {
     let artist = match listen.additional_info.get("artist_names") {
-        Some(serde_json::Value::Array(artists)) => {
-            artists.iter().filter_map(|v| v.as_str()).join(" ")
-        }
+        Some(serde_json::Value::Array(artists)) => artists
+            .iter()
+            .filter_map(|v| v.as_str())
+            .collect::<Vec<_>>()
+            .join(" "),
         _ => listen.artist_name.clone(),
     };
     format!("{} {}", artist, listen.track_name)

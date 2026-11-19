@@ -1,6 +1,5 @@
 use std::{collections::HashMap, error::Error, time::SystemTime};
 
-use itertools::Itertools;
 use listenbrainz::raw::response::UserListensListen;
 
 use navidrome_smart_plugin::{
@@ -128,16 +127,18 @@ fn get_mood(
 
     let centroids = am_client.mood_centroids(None)?;
 
-    let v = avg_mood
+    let mut sorted_moods = avg_mood.iter().collect::<Vec<_>>();
+    sorted_moods.sort_by(|a, b| b.1.total_cmp(a.1));
+
+    let v = sorted_moods
         .iter()
-        .sorted_by(|a, b| b.1.total_cmp(a.1))
         .take(2)
         .map(|(mood, _)| mood)
         .map(|mood| (mood, get_best_cluster(&centroids, &avg_genres, mood)))
         .map(|(mood, cluster)| format!("{}:{}", mood, cluster))
         .collect();
 
-    Ok(v)
+    Ok(dbg!(v))
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
