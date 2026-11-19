@@ -1,17 +1,27 @@
 use std::{collections::HashMap, error::Error, time::SystemTime};
 
 use itertools::Itertools;
-use listenbrainz::raw::response::{UserListensListen, UserListensTrackMetadata};
+use listenbrainz::raw::response::UserListensListen;
 
 use my_vibe_research::{
     audiomuse::{self, AlchemyItem, AlchemyReqBody, MoodCentroidsResponse, SongScore},
     navidrome,
 };
 
-// TODO: implement pagination and get songs from 7 days
-const LISTENS_COUNT: u64 = 250;
-const MOOD_SONGS_COUNT: usize = 50;
-const SEED_COUNT: usize = 3;
+// TODO: Different users have different activity:
+// 1. Heavy user might listen like 100+ songs
+// 2. Regular user could listen 10-15 songs
+// 3. Inactive user might listen 1-2 songs
+//
+// So in my opinion each user should have a different window size.
+// It makes sense to use time instead of hard-coded count.
+// I would take listens from the last 24 hours (starting from the latest
+// listen timestamp). Taking older songs might give worse results since
+// user can easily change their mood in the next day.
+//
+// Final formula could look like this:
+// count =  min(last_24_hours_count, 100)
+const LISTENS_COUNT: u64 = 50;
 
 const PLAYLIST_MAX_SIZE: u32 = 100;
 const ALCHEMY_SUBSTRACT_DISTANCE: f32 = 0.2;
@@ -19,40 +29,6 @@ const ALCHEMY_TEMPERATURE: f32 = 1.0;
 
 const SUBSONIC_API_VERSION: &str = "1.16.1";
 const APP_NAME: &str = "my-vibe";
-
-// TODO: revisit the algorithm
-fn calc_song_score(listens: &[&UserListensListen], now: SystemTime) -> f64 {
-    listens
-        .iter()
-        .map(|listen| {
-            let hours = my_vibe_research::listenbrainz::since_listen(now, listen.listened_at)
-                .as_secs_f64()
-                / 3600.0;
-            1.0 / (1.0 + hours / 168.0)
-        })
-        .sum()
-}
-
-fn get_top_lb_songs(
-    listens: &[UserListensListen],
-    now: SystemTime,
-) -> Result<Vec<&UserListensTrackMetadata>, listenbrainz::Error> {
-    let songs = listens
-        .iter()
-        .into_group_map_by(|l| l.recording_msid.clone())
-        .into_values()
-        .map(|listens| {
-            (
-                calc_song_score(&listens, now),
-                &listens.into_iter().next().unwrap().track_metadata,
-            )
-        })
-        .sorted_by(|a, b| b.0.total_cmp(&a.0))
-        .map(|(_, v)| v)
-        .take(SEED_COUNT)
-        .collect();
-    Ok(songs)
-}
 
 fn get_best_cluster(
     centroids: &MoodCentroidsResponse,
@@ -109,11 +85,11 @@ fn get_mood(
     // TODO: review errors
     // TODO: introduce a custom error for this app.
     // TODO: it is a terrible check (listens may have no scores in audiomuse database)
+    // TODO: additional moods should be added only if they are significant
     if listens.is_empty() {
         panic!("empty listens")
     }
 
-    let listens = listens.iter().take(MOOD_SONGS_COUNT);
     let mut avg_mood: HashMap<String, f64> = HashMap::new();
     let mut avg_genres: HashMap<String, f64> = HashMap::new();
     let mut total_recency_weight = 0.0;
@@ -190,7 +166,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .map(|listen| my_vibe_research::listenbrainz::to_system_time(listen.listened_at))
         .unwrap_or_else(SystemTime::now);
 
-    let mut items: Vec<AlchemyItem> = get_mood(&listens, &am_client, now)?
+    let items: Vec<AlchemyItem> = get_mood(&listens, &am_client, now)?
         .iter()
         .map(|mood| AlchemyItem {
             id: mood.into(),
@@ -198,20 +174,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             r#type: "mood".into(),
         })
         .collect();
-
-    let top_songs = get_top_lb_songs(&listens, now)?;
-
-    for song in &top_songs {
-        let query = my_vibe_research::listenbrainz::song_query(song);
-        let Some(song) = am_client.search_track(&query)? else {
-            continue;
-        };
-        items.push(AlchemyItem {
-            id: song.item_id.clone(),
-            op: "ADD".into(),
-            r#type: "song".into(),
-        });
-    }
 
     let alchemy_body = AlchemyReqBody {
         items,
