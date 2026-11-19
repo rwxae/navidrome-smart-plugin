@@ -138,7 +138,7 @@ fn get_mood(
         .map(|(mood, cluster)| format!("{}:{}", mood, cluster))
         .collect();
 
-    Ok(dbg!(v))
+    Ok(v)
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
