@@ -42,7 +42,8 @@ struct SmartPlugin;
 
 impl InitProvider for SmartPlugin {
     fn on_init(&self) -> Result<(), nd_pdk::lifecycle::Error> {
-        scheduler::schedule_recurring("0 * * * *", SCHEDULE_UPDATE_ID, SCHEDULE_UPDATE_ID).unwrap();
+        scheduler::schedule_recurring("*/5 * * * *", SCHEDULE_UPDATE_ID, SCHEDULE_UPDATE_ID)
+            .unwrap();
         Ok(())
     }
 }
