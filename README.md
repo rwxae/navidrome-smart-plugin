@@ -5,7 +5,6 @@ with [AudioMuse AI](https://github.com/NeptuneHub/AudioMuse-AI).
 
 ## Requirements
 
-- ListenBrainz (will be optional when native [Navidrome API](https://www.navidrome.org/docs/usage/features/scrobbling/#scrobble-history) gets stable enough)
 - AudioMuse AI
 
 ## Architecture

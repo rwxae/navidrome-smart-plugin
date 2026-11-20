@@ -1,14 +1,17 @@
 mod audiomuse;
-mod navidrome;
 mod scrobble;
+mod subsonic;
 
-use std::{collections::HashMap, error::Error, time::SystemTime};
+use std::{collections::HashMap, time::SystemTime};
 
-use listenbrainz::raw::response::UserListensListen;
+use anyhow::Error;
 
 use audiomuse::{AlchemyItem, AlchemyReqBody, MoodCentroidsResponse, SongScore};
 use nd_pdk::{
-    host::scheduler,
+    host::{
+        scheduler,
+        scrobbleretriever::{self, ScrobbleOptions, ScrobbleRef},
+    },
     lifecycle::InitProvider,
     scheduler::{CallbackProvider, SchedulerCallbackRequest},
 };
@@ -26,14 +29,11 @@ use nd_pdk::{
 //
 // Final formula could look like this:
 // count =  min(last_24_hours_count, 100)
-const LISTENS_COUNT: u64 = 50;
+const LISTENS_COUNT: i32 = 50;
 
 const PLAYLIST_MAX_SIZE: u32 = 100;
 const ALCHEMY_SUBSTRACT_DISTANCE: f32 = 0.2;
 const ALCHEMY_TEMPERATURE: f32 = 1.0;
-
-const SUBSONIC_API_VERSION: &str = "1.16.1";
-const APP_NAME: &str = "navidrome-smart-plugin";
 
 const SCHEDULE_UPDATE_ID: &str = "update";
 
@@ -105,10 +105,10 @@ fn get_best_cluster(
 }
 
 fn get_mood(
-    listens: &[UserListensListen],
+    listens: &[ScrobbleRef],
     am_client: &audiomuse::Client,
     now: SystemTime,
-) -> Result<Vec<String>, attohttpc::Error> {
+) -> Result<Vec<String>, Error> {
     // TODO: review errors
     // TODO: introduce a custom error for this app.
     // TODO: it is a terrible check (listens may have no scores in audiomuse database)
@@ -122,13 +122,13 @@ fn get_mood(
     let mut total_recency_weight = 0.0;
 
     for listen in listens {
-        let query = scrobble::song_query(&listen.track_metadata);
-        let track = am_client.search_track(&query)?;
-        let Some(track) = track else {
-            continue;
-        };
-        let song_score: SongScore = am_client.get_score(&track.item_id)?.into();
-        let hours = scrobble::since_listen(now, listen.listened_at).as_secs_f64() / 3600.0;
+        // let query = scrobble::song_query(&listen.track_metadata);
+        // let track = am_client.search_track(&query)?;
+        // let Some(track) = track else {
+        //     continue;
+        // };
+        let song_score: SongScore = am_client.get_score(&listen.media_file_id)?.into();
+        let hours = scrobble::since_listen(now, listen.submission_time).as_secs_f64() / 3600.0;
         let recency_weight = 2.0f64.powf(-hours / 24.0);
         total_recency_weight += recency_weight;
 
@@ -167,31 +167,28 @@ fn get_mood(
     Ok(v)
 }
 
-pub fn main() -> Result<(), Box<dyn Error>> {
-    let lb_user = std::env::var("LISTENBRAINZ_USERNAME")?;
-
+// TODO: use anyhow instead
+pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let am_url = std::env::var("AUDIOMUSE_URL")?;
     let am_token = std::env::var("AUDIOMUSE_TOKEN")?;
-
-    let nm_url = std::env::var("SUBSONIC_URL")?;
     let nm_user = std::env::var("SUBSONIC_USERNAME")?;
-    let nm_pass = std::env::var("SUBSONIC_PASSWORD")?;
 
-    let lb_client = listenbrainz::raw::Client::new();
     let am_client = audiomuse::Client::new(&am_url, &am_token);
-    let nm_client =
-        navidrome::Client::new(&nm_url, APP_NAME, SUBSONIC_API_VERSION, &nm_user, &nm_pass);
+    let sb_client = subsonic::Client::new(&nm_user);
 
-    let listens = lb_client
-        .user_listens(&lb_user, None, None, Some(LISTENS_COUNT))?
-        .payload
-        .listens;
+    let now = scrobbleretriever::get_last_timestamp(&nm_user).and_then(|maybe_timestamp| {
+        maybe_timestamp
+            .map(scrobble::to_system_time)
+            .ok_or_else(|| Error::msg("no listening history"))
+    })?;
 
-    // Just experimenting...
-    let now = listens
-        .first()
-        .map(|listen| scrobble::to_system_time(listen.listened_at))
-        .unwrap_or_else(SystemTime::now);
+    let scrobble_options = ScrobbleOptions {
+        descending: true,
+        max_items: LISTENS_COUNT,
+        ..Default::default()
+    };
+
+    let (listens, _) = scrobbleretriever::get_scrobbles(&nm_user, scrobble_options)?;
 
     let items: Vec<AlchemyItem> = get_mood(&listens, &am_client, now)?
         .iter()
@@ -211,9 +208,10 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 
     let alchemy_result = am_client.alchemy(&alchemy_body)?;
 
-    nm_client.create_playlist(
+    sb_client.create_playlist(
         "My Vibe",
         alchemy_result.results.iter().map(|i| i.item_id.clone()),
+        Some("5rv8I3rbnM8OKRRcHAqnWs"), // TODO: take from storage
     )?;
 
     Ok(())
