@@ -62,7 +62,7 @@ pub fn guess_mood(
 
     let moods = sorted_moods
         .into_iter()
-        .take(2) // TODO: add additional mood only if it is close enough
+        .take(1) // TODO: add additional mood if it is close enough
         .map(|(mood, _)| {
             (
                 mood.to_owned(),
