@@ -1,0 +1,27 @@
+{
+  "name": "Navidrome Smart Plugin",
+  "author": "Alexander Tyurinov",
+  "version": "0.1.0",
+  "description": "TODO",
+  "website": "https://github.com/rwxae/navidrome-smart-plugin",
+  "permissions": {
+    "http": {
+      "reason": "To communicate with Audiomuse AI API",
+      "requiredHosts": [
+        "*"
+      ]
+    },
+    "scheduler": {
+      "reason": "To schedule playlists generation"
+    },
+    "scrobbleRetriever": {
+      "reason": "To analyze listening history"
+    },
+    "subsonicapi": {
+      "reason": "To access library data and to save playlists"
+    },
+    "users": {
+      "reason": "To access scrobbles and to save playlists"
+    }
+  }
+}

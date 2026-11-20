@@ -9,11 +9,14 @@
         nixpkgs.lib.genAttrs nixpkgs.lib.systems.flakeExposed (system: fn nixpkgs.legacyPackages.${system});
     in
     {
+      packages = eachSystem (pkgs: rec {
+        navidrome-smart-plugin = pkgs.pkgsCross.wasi32.callPackage ./nix/package.nix { };
+        default = navidrome-smart-plugin;
+      });
+
       devShells = eachSystem (pkgs: {
         default = pkgs.mkShell {
           packages = with pkgs; [
-            openssl
-            pkg-config
             cargo
             cargo-expand
             clippy
