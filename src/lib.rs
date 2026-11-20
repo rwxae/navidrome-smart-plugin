@@ -41,7 +41,7 @@ struct SmartPlugin;
 
 impl InitProvider for SmartPlugin {
     fn on_init(&self) -> Result<(), nd_pdk::lifecycle::Error> {
-        scheduler::schedule_recurring("*/2 * * * *", SCHEDULE_UPDATE_ID, SCHEDULE_UPDATE_ID)
+        scheduler::schedule_recurring("*/1 * * * *", SCHEDULE_UPDATE_ID, SCHEDULE_UPDATE_ID)
             .map_err(|err| nd_pdk::lifecycle::Error::new(err.to_string()))?;
         Ok(())
     }
