@@ -9,7 +9,7 @@ use audiomuse::{AlchemyItem, AlchemyReqBody};
 use nd_pdk::{
     host::{
         config, scheduler,
-        scrobbleretriever::{self, ScrobbleOptions, ScrobbleOptons},
+        scrobbleretriever::{self, ScrobbleOptions},
     },
     lifecycle::InitProvider,
     scheduler::{CallbackProvider, SchedulerCallbackRequest},
