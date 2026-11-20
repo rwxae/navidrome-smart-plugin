@@ -5,6 +5,7 @@
 
 buildNavidromeRustPlugin (finalAttrs: {
   pname = "smart-plugin";
+  bundleName = "smart-plugin";
 
   version = "0.1.0";
 
