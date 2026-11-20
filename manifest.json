@@ -4,6 +4,33 @@
   "version": "0.1.0",
   "description": "TODO",
   "website": "https://github.com/rwxae/navidrome-smart-plugin",
+  "config": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "audiomuse_url": {
+          "type": "string",
+          "title": "AudioMuse URL",
+          "description": "Base URL of your AudioMuse server.",
+          "format": "uri"
+        },
+        "audiomuse_token": {
+          "type": "string",
+          "title": "AudioMuse Access Token",
+          "description": "API token used to authenticate with AudioMuse."
+        }
+      },
+      "required": [
+        "audiomuse_url",
+        "audiomuse_token"
+      ]
+    },
+    "uiSchema": {
+      "audiomuse_token": {
+        "ui:widget": "password"
+      }
+    }
+  },
   "permissions": {
     "http": {
       "reason": "To communicate with Audiomuse AI API",

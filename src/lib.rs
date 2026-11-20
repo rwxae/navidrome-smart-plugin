@@ -9,7 +9,7 @@ use anyhow::Error;
 use audiomuse::{AlchemyItem, AlchemyReqBody, MoodCentroidsResponse, SongScore};
 use nd_pdk::{
     host::{
-        scheduler,
+        config, scheduler,
         scrobbleretriever::{self, ScrobbleOptions, ScrobbleRef},
     },
     lifecycle::InitProvider,
@@ -49,7 +49,7 @@ impl InitProvider for SmartPlugin {
 
 impl CallbackProvider for SmartPlugin {
     fn on_callback(&self, _req: SchedulerCallbackRequest) -> Result<(), nd_pdk::scheduler::Error> {
-        // TODO: generate playlist
+        main().unwrap();
         Ok(())
     }
 }
@@ -169,9 +169,11 @@ fn get_mood(
 
 // TODO: use anyhow instead
 pub fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let am_url = std::env::var("AUDIOMUSE_URL")?;
-    let am_token = std::env::var("AUDIOMUSE_TOKEN")?;
-    let nm_user = std::env::var("SUBSONIC_USERNAME")?;
+    let am_url =
+        config::get("audiomuse_url")?.ok_or_else(|| Error::msg("audiomuse_url is required"))?;
+    let am_token =
+        config::get("audiomuse_token")?.ok_or_else(|| Error::msg("audiomuse_token is required"))?;
+    let nm_user = "rwxae".to_owned();
 
     let am_client = audiomuse::Client::new(&am_url, &am_token);
     let sb_client = subsonic::Client::new(&nm_user);
