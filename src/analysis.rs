@@ -1,6 +1,7 @@
 use std::{collections::HashMap, time::SystemTime};
 
 use anyhow::Error;
+use extism_pdk::warn;
 use nd_pdk::host::scrobbleretriever::ScrobbleRef;
 
 use crate::{
@@ -35,7 +36,7 @@ pub fn guess_mood(
         let song_score: SongScore = match am_client.get_score(&listen.media_file_id)? {
             GetScoreResponse::Success(raw) => raw.into(),
             GetScoreResponse::Error(api_error) => {
-                eprintln!("{}", api_error.error_message);
+                warn!("{}", api_error.error_message);
                 continue;
             }
         };
