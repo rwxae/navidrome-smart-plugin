@@ -12,7 +12,7 @@ pub fn guess_mood(
     listens: &[ScrobbleRef],
     am_client: &audiomuse::Client,
     now: SystemTime,
-) -> Result<Vec<String>, Error> {
+) -> Result<Vec<(String, u32)>, Error> {
     // TODO: review errors
     // TODO: introduce a custom error for this app.
     // TODO: it is a terrible check (listens may have no scores in audiomuse database)
@@ -60,15 +60,18 @@ pub fn guess_mood(
     let mut sorted_moods = avg_mood.iter().collect::<Vec<_>>();
     sorted_moods.sort_by(|a, b| b.1.total_cmp(a.1));
 
-    let v = sorted_moods
-        .iter()
-        .take(2)
-        .map(|(mood, _)| mood)
-        .map(|mood| (mood, get_best_cluster(&centroids, &avg_genres, mood)))
-        .map(|(mood, cluster)| format!("{}:{}", mood, cluster))
+    let moods = sorted_moods
+        .into_iter()
+        .take(2) // TODO: add additional mood only if it is close enough
+        .map(|(mood, _)| {
+            (
+                mood.to_owned(),
+                get_best_cluster(&centroids, &avg_genres, mood),
+            )
+        })
         .collect();
 
-    Ok(v)
+    Ok(moods)
 }
 
 fn get_best_cluster(

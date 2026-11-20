@@ -10,6 +10,7 @@ use nd_pdk::{
     host::{
         config, scheduler,
         scrobbleretriever::{self, ScrobbleOptions},
+        users::{User, get_users},
     },
     lifecycle::InitProvider,
     scheduler::{CallbackProvider, SchedulerCallbackRequest},
@@ -49,26 +50,48 @@ impl InitProvider for SmartPlugin {
 
 impl CallbackProvider for SmartPlugin {
     fn on_callback(&self, _req: SchedulerCallbackRequest) -> Result<(), nd_pdk::scheduler::Error> {
-        generate_playlists().map_err(|err| nd_pdk::scheduler::Error::new(err.to_string()))
+        let audiomuse_url = config::get("audiomuse_url")
+            .map_err(|err| nd_pdk::scheduler::Error::new(err.to_string()))?
+            .ok_or_else(|| nd_pdk::scheduler::Error::new("config: audiomuse_url is required"))?;
+        let audiomuse_token = config::get("audiomuse_token")
+            .map_err(|err| nd_pdk::scheduler::Error::new(err.to_string()))?
+            .ok_or_else(|| nd_pdk::scheduler::Error::new("config: audiomuse_token is required"))?;
+
+        let users = get_users().map_err(|err| nd_pdk::scheduler::Error::new(err.to_string()))?;
+
+        let am_client = audiomuse::Client::new(&audiomuse_url, &audiomuse_token);
+
+        generate_playlists(&am_client, &users)
+            .map_err(|err| nd_pdk::scheduler::Error::new(err.to_string()))
     }
 }
 
 nd_pdk::register_lifecycle_init!(SmartPlugin);
 nd_pdk::register_scheduler_callback!(SmartPlugin);
 
-fn generate_playlists() -> Result<(), Error> {
-    let am_url =
-        config::get("audiomuse_url")?.ok_or_else(|| Error::msg("audiomuse_url is required"))?;
-    let am_token =
-        config::get("audiomuse_token")?.ok_or_else(|| Error::msg("audiomuse_token is required"))?;
-    let nm_user = "rwxae".to_owned();
+fn generate_playlists(am_client: &audiomuse::Client, users: &[User]) -> Result<(), Error> {
+    let mut errors = Vec::new();
 
-    let am_client = audiomuse::Client::new(&am_url, &am_token);
-    let sb_client = subsonic::Client::new(&nm_user);
+    for user in users {
+        if let Err(err) = generate_user_playlists(am_client, user) {
+            errors.push(format!("user={}: {}", user.user_name, err));
+        }
+    }
 
-    let now = scrobbleretriever::get_last_timestamp(&nm_user)?
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(Error::msg(format!(
+            "Failed to generate playlists for users:\n{}",
+            errors.join("\n")
+        )))
+    }
+}
+
+fn generate_user_playlists(am_client: &audiomuse::Client, user: &User) -> Result<(), Error> {
+    let last_timestamp = scrobbleretriever::get_last_timestamp(&user.user_name)?
         .map(scrobble::to_system_time)
-        .ok_or_else(|| Error::msg("no listening history"))?;
+        .ok_or_else(|| Error::msg("Empty listening history"))?;
 
     let scrobble_options = ScrobbleOptions {
         descending: true,
@@ -76,12 +99,12 @@ fn generate_playlists() -> Result<(), Error> {
         ..Default::default()
     };
 
-    let (listens, _) = scrobbleretriever::get_scrobbles(&nm_user, scrobble_options)?;
+    let (listens, _) = scrobbleretriever::get_scrobbles(&user.user_name, scrobble_options)?;
 
-    let items: Vec<AlchemyItem> = guess_mood(&listens, &am_client, now)?
-        .iter()
-        .map(|mood| AlchemyItem {
-            id: mood.into(),
+    let items: Vec<AlchemyItem> = guess_mood(&listens, am_client, last_timestamp)?
+        .into_iter()
+        .map(|(mood, cluster)| AlchemyItem {
+            id: format!("{mood}:{cluster}"),
             op: "ADD".into(),
             r#type: "mood".into(),
         })
@@ -96,8 +119,9 @@ fn generate_playlists() -> Result<(), Error> {
 
     let alchemy_result = am_client.alchemy(&alchemy_body)?;
 
-    sb_client.create_playlist(
+    subsonic::create_playlist(
         "My Vibe",
+        &user.user_name,
         alchemy_result.results.iter().map(|i| i.item_id.clone()),
         Some("5rv8I3rbnM8OKRRcHAqnWs"), // TODO: take from storage
     )?;
