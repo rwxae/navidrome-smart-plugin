@@ -120,8 +120,8 @@ fn generate_user_playlists(am_client: &audiomuse::Client, user: &User) -> Result
     let alchemy_result = am_client.alchemy(&alchemy_body)?;
 
     subsonic::create_playlist(
-        "My Vibe",
         &user.user_name,
+        "My Vibe",
         alchemy_result.results.iter().map(|i| i.item_id.clone()),
         Some("5rv8I3rbnM8OKRRcHAqnWs"), // TODO: take from storage
     )?;
