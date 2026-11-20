@@ -26,9 +26,20 @@
       ]
     },
     "uiSchema": {
-      "audiomuse_token": {
-        "ui:widget": "password"
-      }
+      "type": "VerticalLayout",
+      "elements": [
+        {
+          "type": "Control",
+          "scope": "#/properties/audiomuse_url"
+        },
+        {
+          "type": "Control",
+          "scope": "#/properties/audiomuse_token",
+          "options": {
+            "format": "password"
+          }
+        }
+      ]
     }
   },
   "permissions": {
