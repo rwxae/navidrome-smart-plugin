@@ -10,6 +10,14 @@ pub struct Client {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+pub struct ApiError {
+    pub error: String,
+    pub error_class: String,
+    pub error_code: u32,
+    pub error_message: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 pub struct SearchTrackResponse {
     pub album: String,
     pub album_artist: String,
@@ -44,7 +52,14 @@ pub struct AlchemyResponseItem {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct GetScoreResponse {
+#[serde(untagged)]
+pub enum GetScoreResponse {
+    Success(ScoreData),
+    Error(ApiError),
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ScoreData {
     mood_vector: String,
     other_features: String,
 }
@@ -124,8 +139,8 @@ pub struct SongScore {
     pub genres: HashMap<String, f64>,
 }
 
-impl From<GetScoreResponse> for SongScore {
-    fn from(value: GetScoreResponse) -> Self {
+impl From<ScoreData> for SongScore {
+    fn from(value: ScoreData) -> Self {
         let mood = value
             .other_features
             .split(",")

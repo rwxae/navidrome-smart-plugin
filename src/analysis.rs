@@ -4,7 +4,7 @@ use anyhow::Error;
 use nd_pdk::host::scrobbleretriever::ScrobbleRef;
 
 use crate::{
-    audiomuse::{self, MoodCentroidsResponse, SongScore},
+    audiomuse::{self, GetScoreResponse, MoodCentroidsResponse, SongScore},
     scrobble,
 };
 
@@ -26,12 +26,20 @@ pub fn guess_mood(
     let mut total_recency_weight = 0.0;
 
     for listen in listens {
+        // TODO: should I search track in AudioMuse?
         // let query = scrobble::song_query(&listen.track_metadata);
         // let track = am_client.search_track(&query)?;
         // let Some(track) = track else {
         //     continue;
         // };
-        let song_score: SongScore = am_client.get_score(&listen.media_file_id)?.into();
+        let song_score: SongScore = match am_client.get_score(&listen.media_file_id)? {
+            GetScoreResponse::Success(raw) => raw.into(),
+            GetScoreResponse::Error(api_error) => {
+                eprintln!("{}", api_error.error_message);
+                continue;
+            }
+        };
+
         let hours = scrobble::since_listen(now, listen.submission_time).as_secs_f64() / 3600.0;
         let recency_weight = 2.0f64.powf(-hours / 24.0);
         total_recency_weight += recency_weight;
