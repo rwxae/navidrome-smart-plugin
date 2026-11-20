@@ -27,7 +27,7 @@ impl Client {
             .map(|id| format!("&songId={}", id))
             .collect();
         let mut uri = format!(
-            "rest/createPlaylist?user={}&name={}{}",
+            "rest/createPlaylist?u={}&name={}{}",
             self.user, name, songs_param
         );
         if let Some(id) = id {
