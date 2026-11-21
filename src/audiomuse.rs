@@ -18,15 +18,6 @@ pub struct ApiError {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct SearchTrackResponse {
-    pub album: String,
-    pub album_artist: String,
-    pub author: String,
-    pub item_id: String,
-    pub title: String,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
 pub struct AlchemyReqBody {
     pub items: Vec<AlchemyItem>,
     pub n: u32,
@@ -102,16 +93,6 @@ impl Client {
             ..Default::default()
         };
         http::send(request)?.ok_or_else(|| Error::msg("audiomuse: empty response"))
-    }
-
-    pub fn search_tracks(&self, query: &str) -> Result<Vec<SearchTrackResponse>, Error> {
-        let url = format!("{}/api/search_tracks?search_query={}", self.api_base, query);
-        self.send_http("GET", &url, Default::default())
-            .and_then(|res| serde_json::from_slice(&res.body).map_err(Into::into))
-    }
-
-    pub fn search_track(&self, query: &str) -> Result<Option<SearchTrackResponse>, Error> {
-        Ok(self.search_tracks(query)?.into_iter().next())
     }
 
     pub fn alchemy(&self, body: &AlchemyReqBody) -> Result<AlchemyResponse, Error> {
