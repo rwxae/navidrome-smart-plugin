@@ -30,6 +30,7 @@ use nd_pdk::{
 // Final formula could look like this:
 // count =  min(last_24_hours_count, 100)
 const LISTENS_COUNT: i32 = 50;
+const LISTENS_COUNT: i32 = 15;
 
 const PLAYLIST_MAX_SIZE: u32 = 100;
 const ALCHEMY_SUBSTRACT_DISTANCE: f32 = 0.2;
