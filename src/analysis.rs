@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::{Error, anyhow};
-use extism_pdk::warn;
+use extism_pdk::{debug, warn};
 use nd_pdk::host::scrobbleretriever::ScrobbleRef;
 
 use crate::audiomuse::{self, CentroidMetadata, GetScoreResponse, SongScore};
@@ -75,6 +75,8 @@ pub fn guess_mood(
 
     let mut sorted_moods = avg_mood.iter().collect::<Vec<_>>();
     sorted_moods.sort_by(|a, b| b.1.total_cmp(a.1));
+
+    debug!("{:?}", sorted_moods);
 
     let moods = sorted_moods
         .into_iter()
