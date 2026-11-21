@@ -5,6 +5,7 @@ mod subsonic;
 use analysis::guess_mood;
 use anyhow::{Error, anyhow};
 use audiomuse::{AlchemyItem, AlchemyReqBody};
+use extism_pdk::info;
 use nd_pdk::{
     host::{
         config, scheduler,
@@ -85,6 +86,7 @@ fn generate_user_playlists(am_client: &audiomuse::Client, user: &User) -> Result
 
     let items: Vec<_> = guess_mood(&scrobbles, am_client)?
         .into_iter()
+        .inspect(|(mood, cluster)| info!("Seeding: mood:{mood}, cluster:{cluster}"))
         .map(|(mood, cluster)| AlchemyItem {
             id: format!("{mood}:{cluster}"),
             op: "ADD".into(),
