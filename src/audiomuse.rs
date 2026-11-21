@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    ops::{AddAssign, DivAssign, Mul},
+};
 
 use anyhow::{Error, anyhow};
 use nd_pdk::host::http::{self, HTTPResponse};
@@ -64,7 +67,15 @@ pub struct CentroidMetadata {
     pub top_tags: Vec<String>,
 }
 
-pub type MoodCentroidsResponse = HashMap<String, Vec<CentroidMetadata>>;
+#[derive(Debug, Deserialize, Serialize)]
+pub struct MoodCentroidsResponse {
+    pub aggressive: Vec<CentroidMetadata>,
+    pub danceable: Vec<CentroidMetadata>,
+    pub happy: Vec<CentroidMetadata>,
+    pub party: Vec<CentroidMetadata>,
+    pub relaxed: Vec<CentroidMetadata>,
+    pub sad: Vec<CentroidMetadata>,
+}
 
 impl Client {
     pub fn new(url: &str, access_token: &str) -> Self {
@@ -116,28 +127,80 @@ impl Client {
 
 #[derive(Debug)]
 pub struct SongScore {
-    pub mood: HashMap<String, f64>,
+    pub mood: SongScoreMood,
     pub genres: HashMap<String, f64>,
 }
 
 impl From<ScoreData> for SongScore {
     fn from(value: ScoreData) -> Self {
-        let mood = value
+        let mut mood = SongScoreMood::default();
+        value
             .other_features
             .split(",")
-            .filter_map(|v| {
-                v.split_once(":")
-                    .and_then(|(n, w)| w.parse::<f64>().ok().map(|v| (n.into(), v)))
-            })
-            .collect();
+            .filter_map(|entry| entry.split_once(":"))
+            .filter_map(|(k, v)| v.parse::<f64>().ok().map(|v| (k, v)))
+            .for_each(|(k, v)| match k {
+                "aggressive" => mood.aggressive = v,
+                "danceable" => mood.danceable = v,
+                "happy" => mood.happy = v,
+                "party" => mood.party = v,
+                "relaxed" => mood.relaxed = v,
+                "sad" => mood.sad = v,
+                _ => unreachable!("There are only 6 moods"),
+            });
         let genres = value
             .mood_vector
             .split(",")
-            .filter_map(|v| {
-                v.split_once(":")
-                    .and_then(|(n, w)| w.parse::<f64>().ok().map(|v| (n.into(), v)))
-            })
+            .filter_map(|entry| entry.split_once(":"))
+            .filter_map(|(k, v)| v.parse::<f64>().ok().map(|v| (k.into(), v)))
             .collect();
         Self { mood, genres }
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct SongScoreMood {
+    pub aggressive: f64,
+    pub danceable: f64,
+    pub happy: f64,
+    pub party: f64,
+    pub relaxed: f64,
+    pub sad: f64,
+}
+
+impl AddAssign for SongScoreMood {
+    fn add_assign(&mut self, rhs: Self) {
+        self.aggressive += rhs.aggressive;
+        self.danceable += rhs.danceable;
+        self.happy += rhs.happy;
+        self.party += rhs.party;
+        self.relaxed += rhs.relaxed;
+        self.sad += rhs.sad;
+    }
+}
+
+impl DivAssign<f64> for SongScoreMood {
+    fn div_assign(&mut self, rhs: f64) {
+        self.aggressive /= rhs;
+        self.danceable /= rhs;
+        self.happy /= rhs;
+        self.party /= rhs;
+        self.relaxed /= rhs;
+        self.sad /= rhs;
+    }
+}
+
+impl Mul<f64> for SongScoreMood {
+    type Output = Self;
+
+    fn mul(self, rhs: f64) -> Self::Output {
+        Self {
+            aggressive: self.aggressive * rhs,
+            danceable: self.danceable * rhs,
+            happy: self.happy * rhs,
+            party: self.party * rhs,
+            relaxed: self.relaxed * rhs,
+            sad: self.sad * rhs,
+        }
     }
 }

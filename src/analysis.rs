@@ -4,15 +4,15 @@ use std::{
 };
 
 use anyhow::{Error, anyhow};
-use extism_pdk::{info, warn};
+use extism_pdk::warn;
 use nd_pdk::host::scrobbleretriever::ScrobbleRef;
 
-use crate::audiomuse::{self, CentroidMetadata, GetScoreResponse, SongScore};
+use crate::audiomuse::{self, CentroidMetadata, GetScoreResponse, SongScore, SongScoreMood};
 
 pub fn guess_mood(
     scrobbles: &[ScrobbleRef],
     am_client: &audiomuse::Client,
-) -> Result<Vec<(String, u32)>, Error> {
+) -> Result<[(String, u32); 3], Error> {
     let mut scrobbles = scrobbles
         .iter()
         .filter_map(|scrobble| {
@@ -41,7 +41,7 @@ pub fn guess_mood(
         .map(|scrobble| scrobble.1 + Duration::from_hours(1))
         .ok_or_else(|| anyhow!("Empty listening history"))?;
 
-    let mut avg_mood: HashMap<String, f64> = HashMap::new();
+    let mut avg_mood = SongScoreMood::default();
     let mut avg_genres: HashMap<String, f64> = HashMap::new();
     let mut total_recency_weight = 0.0;
 
@@ -54,18 +54,14 @@ pub fn guess_mood(
         let recency_weight = 2.0f64.powf(-hours_elapsed / 24.0);
         total_recency_weight += recency_weight;
 
-        for (key, value) in song_score.mood {
-            *avg_mood.entry(key).or_insert(0.0) += recency_weight * value;
-        }
+        avg_mood += song_score.mood * recency_weight;
 
         for (key, value) in song_score.genres {
             *avg_genres.entry(key).or_insert(0.0) += recency_weight * value;
         }
     }
 
-    for weight in avg_mood.values_mut() {
-        *weight /= total_recency_weight;
-    }
+    avg_mood /= total_recency_weight;
 
     for weight in avg_genres.values_mut() {
         *weight /= total_recency_weight;
@@ -73,21 +69,38 @@ pub fn guess_mood(
 
     let centroids = am_client.mood_centroids()?;
 
-    let mut sorted_moods = avg_mood.iter().collect::<Vec<_>>();
-    sorted_moods.sort_by(|a, b| b.1.total_cmp(a.1));
-
-    info!("Calculated moods: {:?}", sorted_moods);
-
-    let moods = sorted_moods
-        .into_iter()
-        .take(1) // TODO: add additional mood if it is close enough
-        .map(|(mood, _)| {
+    let moods = [
+        if avg_mood.aggressive >= avg_mood.party {
             (
-                mood.to_owned(),
-                get_best_cluster(centroids.get(mood).unwrap(), &avg_genres),
+                "aggressive".into(),
+                get_best_cluster(&centroids.aggressive, &avg_genres),
             )
-        })
-        .collect();
+        } else {
+            (
+                "party".into(),
+                get_best_cluster(&centroids.party, &avg_genres),
+            )
+        },
+        if avg_mood.danceable >= avg_mood.relaxed {
+            (
+                "danceable".into(),
+                get_best_cluster(&centroids.danceable, &avg_genres),
+            )
+        } else {
+            (
+                "relaxed".into(),
+                get_best_cluster(&centroids.relaxed, &avg_genres),
+            )
+        },
+        if avg_mood.happy >= avg_mood.sad {
+            (
+                "happy".into(),
+                get_best_cluster(&centroids.happy, &avg_genres),
+            )
+        } else {
+            ("sad".into(), get_best_cluster(&centroids.sad, &avg_genres))
+        },
+    ];
 
     Ok(moods)
 }
