@@ -1,48 +1,57 @@
-use std::{collections::HashMap, time::SystemTime};
+use std::{
+    collections::HashMap,
+    time::{Duration, UNIX_EPOCH},
+};
 
-use anyhow::Error;
+use anyhow::{Error, anyhow};
 use extism_pdk::warn;
 use nd_pdk::host::scrobbleretriever::ScrobbleRef;
 
-use crate::{
-    audiomuse::{self, GetScoreResponse, MoodCentroidsResponse, SongScore},
-    scrobble,
-};
+use crate::audiomuse::{self, CentroidMetadata, GetScoreResponse, SongScore};
 
 pub fn guess_mood(
-    listens: &[ScrobbleRef],
+    scrobbles: &[ScrobbleRef],
     am_client: &audiomuse::Client,
-    now: SystemTime,
 ) -> Result<Vec<(String, u32)>, Error> {
-    // TODO: review errors
-    // TODO: introduce a custom error for this app.
-    // TODO: it is a terrible check (listens may have no scores in audiomuse database)
-    // TODO: additional moods should be added only if they are significant
-    if listens.is_empty() {
-        return Err(Error::msg("Listening history is empty"));
-    }
+    let mut scrobbles = scrobbles
+        .iter()
+        .filter_map(|scrobble| {
+            am_client
+                .get_score(&scrobble.media_file_id)
+                .inspect_err(|err| warn!("{}", err))
+                .ok()
+                .and_then(|response| match response {
+                    GetScoreResponse::Success(raw) => Some(SongScore::from(raw)),
+                    GetScoreResponse::Error(api_error) => {
+                        warn!("{}", api_error.error_message);
+                        None
+                    }
+                })
+                .map(|score| {
+                    (
+                        score,
+                        UNIX_EPOCH + Duration::from_secs(scrobble.submission_time as u64),
+                    )
+                })
+        })
+        .peekable();
+
+    let latest_timestamp = scrobbles
+        .peek()
+        .map(|scrobble| scrobble.1 + Duration::from_hours(1))
+        .ok_or_else(|| anyhow!("Empty listening history"))?;
 
     let mut avg_mood: HashMap<String, f64> = HashMap::new();
     let mut avg_genres: HashMap<String, f64> = HashMap::new();
     let mut total_recency_weight = 0.0;
 
-    for listen in listens {
-        // TODO: should I search track in AudioMuse?
-        // let query = scrobble::song_query(&listen.track_metadata);
-        // let track = am_client.search_track(&query)?;
-        // let Some(track) = track else {
-        //     continue;
-        // };
-        let song_score: SongScore = match am_client.get_score(&listen.media_file_id)? {
-            GetScoreResponse::Success(raw) => raw.into(),
-            GetScoreResponse::Error(api_error) => {
-                warn!("{}", api_error.error_message);
-                continue;
-            }
-        };
+    for (song_score, listened_at) in scrobbles {
+        let hours_elapsed = latest_timestamp
+            .duration_since(listened_at)
+            .map(|d| d.as_secs_f64() / 3600.0)
+            .expect("Latest submission_time + 1 hour must exceed every scrobble submission_time");
 
-        let hours = scrobble::since_listen(now, listen.submission_time).as_secs_f64() / 3600.0;
-        let recency_weight = 2.0f64.powf(-hours / 24.0);
+        let recency_weight = 2.0f64.powf(-hours_elapsed / 24.0);
         total_recency_weight += recency_weight;
 
         for (key, value) in song_score.mood {
@@ -53,8 +62,6 @@ pub fn guess_mood(
             *avg_genres.entry(key).or_insert(0.0) += recency_weight * value;
         }
     }
-
-    // TODO: early return if no songs.
 
     for weight in avg_mood.values_mut() {
         *weight /= total_recency_weight;
@@ -75,7 +82,7 @@ pub fn guess_mood(
         .map(|(mood, _)| {
             (
                 mood.to_owned(),
-                get_best_cluster(&centroids, &avg_genres, mood),
+                get_best_cluster(centroids.get(mood).unwrap(), &avg_genres),
             )
         })
         .collect();
@@ -83,15 +90,7 @@ pub fn guess_mood(
     Ok(moods)
 }
 
-fn get_best_cluster(
-    centroids: &MoodCentroidsResponse,
-    genres: &HashMap<String, f64>,
-    mood: &str,
-) -> u32 {
-    let Some(clusters) = centroids.get(mood) else {
-        panic!("no centroids for mood {mood}")
-    };
-
+fn get_best_cluster(clusters: &[CentroidMetadata], genres: &HashMap<String, f64>) -> u32 {
     let mut doc_freq: HashMap<String, usize> = HashMap::new();
     for cluster in clusters {
         for tag in &cluster.top_tags {
@@ -127,5 +126,5 @@ fn get_best_cluster(
         })
         .max_by(|a, b| a.0.total_cmp(&b.0))
         .map(|(_, cluster_id)| cluster_id)
-        .expect("no clusters found")
+        .expect("At least one cluster for the given mood")
 }

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use anyhow::Error;
+use anyhow::{Error, anyhow};
 use nd_pdk::host::http::{self, HTTPResponse};
 use serde::{Deserialize, Serialize};
 
@@ -92,7 +92,7 @@ impl Client {
             body,
             ..Default::default()
         };
-        http::send(request)?.ok_or_else(|| Error::msg("audiomuse: empty response"))
+        http::send(request)?.ok_or_else(|| anyhow!("audiomuse: empty response"))
     }
 
     pub fn alchemy(&self, body: &AlchemyReqBody) -> Result<AlchemyResponse, Error> {

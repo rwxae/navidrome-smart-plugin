@@ -1,10 +1,9 @@
 mod analysis;
 mod audiomuse;
-mod scrobble;
 mod subsonic;
 
 use analysis::guess_mood;
-use anyhow::Error;
+use anyhow::{Error, anyhow};
 use audiomuse::{AlchemyItem, AlchemyReqBody};
 use nd_pdk::{
     host::{
@@ -16,21 +15,7 @@ use nd_pdk::{
     scheduler::{CallbackProvider, SchedulerCallbackRequest},
 };
 
-// TODO: Different users have different activity:
-// 1. Heavy user might listen like 100+ songs
-// 2. Regular user could listen 10-15 songs
-// 3. Inactive user might listen 1-2 songs
-//
-// So in my opinion each user should have a different window size.
-// It makes sense to use time instead of hard-coded count.
-// I would take listens from the last 24 hours (starting from the latest
-// listen timestamp). Taking older songs might give worse results since
-// user can easily change their mood in the next day.
-//
-// Final formula could look like this:
-// count =  min(last_24_hours_count, 100)
-const LISTENS_COUNT: i32 = 50;
-const LISTENS_COUNT: i32 = 15;
+const SCROBBLES_COUNT: i32 = 15;
 
 const PLAYLIST_MAX_SIZE: u32 = 100;
 const ALCHEMY_SUBSTRACT_DISTANCE: f32 = 0.2;
@@ -82,27 +67,23 @@ fn generate_playlists(am_client: &audiomuse::Client, users: &[User]) -> Result<(
     if errors.is_empty() {
         Ok(())
     } else {
-        Err(Error::msg(format!(
+        Err(anyhow!(
             "Failed to generate playlists for users:\n{}",
             errors.join("\n")
-        )))
+        ))
     }
 }
 
 fn generate_user_playlists(am_client: &audiomuse::Client, user: &User) -> Result<(), Error> {
-    let last_timestamp = scrobbleretriever::get_last_timestamp(&user.user_name)?
-        .map(scrobble::to_system_time)
-        .ok_or_else(|| Error::msg("Empty listening history"))?;
-
     let scrobble_options = ScrobbleOptions {
         descending: true,
-        max_items: LISTENS_COUNT,
+        max_items: SCROBBLES_COUNT,
         ..Default::default()
     };
 
-    let (listens, _) = scrobbleretriever::get_scrobbles(&user.user_name, scrobble_options)?;
+    let (scrobbles, _) = scrobbleretriever::get_scrobbles(&user.user_name, scrobble_options)?;
 
-    let items: Vec<AlchemyItem> = guess_mood(&listens, am_client, last_timestamp)?
+    let items: Vec<_> = guess_mood(&scrobbles, am_client)?
         .into_iter()
         .map(|(mood, cluster)| AlchemyItem {
             id: format!("{mood}:{cluster}"),
