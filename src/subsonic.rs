@@ -1,7 +1,8 @@
+use std::fmt::Display;
+
 use anyhow::Error;
 use nd_pdk::host::subsonicapi;
 use serde::{Deserialize, Serialize};
-use std::fmt::Display;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SubsonicResponse<T> {
