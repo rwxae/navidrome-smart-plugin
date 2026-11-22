@@ -5,7 +5,7 @@ mod subsonic;
 use analysis::guess_mood;
 use anyhow::{Error, anyhow};
 use audiomuse::{AlchemyItem, AlchemyReqBody};
-use extism_pdk::info;
+use extism_pdk::{info, warn};
 use nd_pdk::{
     host::{
         config, scheduler,
@@ -110,8 +110,14 @@ fn generate_user_playlists(am_client: &audiomuse::Client, user: &User) -> Result
         Some("5rv8I3rbnM8iKRRcHAqkWs"), // TODO: take from storage
     )?;
 
-    info!("{}", r);
-    info!("should be unreachable code for now");
+    if r.response.data.is_some() {
+        info!("Successfully saved the playlist for {}", user.user_name);
+    } else if let Some(error) = r.response.error {
+        warn!(
+            "Failed to save the playlist for {} because of {}",
+            user.user_name, error.message
+        );
+    }
 
     Ok(())
 }
