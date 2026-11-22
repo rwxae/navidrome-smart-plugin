@@ -2,7 +2,7 @@
   "name": "Navidrome Smart Plugin",
   "author": "Alexander Tyurinov",
   "version": "0.1.0",
-  "description": "TODO",
+  "description": "Generate personalized mixes for Navidrome using AudioMuse AI",
   "website": "https://github.com/rwxae/navidrome-smart-plugin",
   "config": {
     "schema": {

@@ -2,6 +2,11 @@
 name = "navidrome-smart-plugin"
 version = "0.1.0"
 edition = "2024"
+authors = ["Alexander Tyurinov <wardxela@gmail.com>"]
+license = "GPL-3.0-only"
+description = "Generate personalized mixes for Navidrome using AudioMuse AI"
+repository = "https://github.com/rwxae/navidrome-smart-plugin"
+homepage = "https://github.com/rwxae/navidrome-smart-plugin"
 
 [lib]
 crate-type = ["cdylib"]
