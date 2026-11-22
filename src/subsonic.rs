@@ -4,13 +4,13 @@ use anyhow::Error;
 use nd_pdk::host::subsonicapi;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct SubsonicResponse<T> {
     #[serde(rename = "subsonic-response")]
     pub response: SubsonicResponseBody<T>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SubsonicResponseBody<T> {
     pub status: String,
@@ -19,25 +19,35 @@ pub struct SubsonicResponseBody<T> {
     pub server_version: String,
     pub open_subsonic: bool,
 
-    pub error: Option<SubsonicError>,
-
     #[serde(flatten)]
-    pub data: Option<T>,
+    pub data: SubsonicResponseData<T>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(untagged)]
+pub enum SubsonicResponseData<T> {
+    Success(T),
+    Failed(SubsonicError),
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 pub struct SubsonicError {
+    pub error: SubsonicErrorContent,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct SubsonicErrorContent {
     pub code: i32,
     pub message: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct CreatePlaylistResponse {
-    pub playlist: Playlist,
+    pub playlist: CreatePlaylistResponseContent,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Playlist {
+#[derive(Debug, Deserialize, Serialize)]
+pub struct CreatePlaylistResponseContent {
     pub id: String,
 }
 
