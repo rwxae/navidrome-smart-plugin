@@ -3,11 +3,15 @@
   buildNavidromeRustPlugin,
 }:
 
+let
+  manifest = with builtins; (fromTOML (readFile ../Cargo.toml)).package;
+in
+
 buildNavidromeRustPlugin (finalAttrs: {
   pname = "smart-plugin";
   bundleName = "smart-plugin";
 
-  version = "0.1.0";
+  version = manifest.version;
 
   src = ../.;
 
@@ -16,8 +20,8 @@ buildNavidromeRustPlugin (finalAttrs: {
   doCheck = true;
 
   meta = {
-    description = "TODO";
-    homepage = "https://github.com/rwxae/navidrome-smart-plugin";
+    description = manifest.description;
+    homepage = manifest.homepage;
     license = lib.licenses.gpl3Only;
     sourceProvenance = with lib.sourceTypes; [ fromSource ];
   };
