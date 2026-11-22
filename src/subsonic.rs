@@ -45,7 +45,7 @@ pub fn create_playlist<T>(
     user: &str,
     name: &str,
     songs: T,
-    id: Option<&str>,
+    id: Option<impl Display>,
 ) -> Result<SubsonicResponse<CreatePlaylistResponse>, Error>
 where
     T: IntoIterator,

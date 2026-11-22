@@ -49,6 +49,9 @@
         "*"
       ]
     },
+    "kvstore": {
+      "reason": "To store playlist IDs"
+    },
     "scheduler": {
       "reason": "To schedule playlists generation"
     },
