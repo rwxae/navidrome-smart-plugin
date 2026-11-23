@@ -1,5 +1,6 @@
 mod analysis;
 mod audiomuse;
+mod playlist;
 mod subsonic;
 
 use analysis::guess_mood;
@@ -8,16 +9,15 @@ use audiomuse::{AlchemyItem, AlchemyReqBody};
 use extism_pdk::info;
 use nd_pdk::{
     host::{
-        config, kvstore, scheduler,
+        config, scheduler,
         scrobbleretriever::{self, ScrobbleOptions},
         users::{User, get_users},
     },
     lifecycle::InitProvider,
     scheduler::{CallbackProvider, SchedulerCallbackRequest},
 };
-use serde::{Deserialize, Serialize};
 
-use crate::subsonic::SubsonicResponseData;
+use crate::playlist::{Playlist, PlaylistKind};
 
 const SCROBBLES_COUNT: i32 = 15;
 
@@ -26,11 +26,6 @@ const ALCHEMY_SUBSTRACT_DISTANCE: f32 = 0.2;
 const ALCHEMY_TEMPERATURE: f32 = 0.4;
 
 const SCHEDULE_UPDATE_ID: &str = "update";
-
-#[derive(Deserialize, Serialize)]
-enum Playlist {
-    MyVibe,
-}
 
 #[derive(Default)]
 struct SmartPlugin;
@@ -116,51 +111,9 @@ fn generate_user_playlists(am_client: &audiomuse::Client, user: &User) -> Result
         .map(|i| i.item_id.clone())
         .collect();
 
-    let title = "My Vibe";
-    let cache_key = format!(
-        "{}:{}",
-        user.user_name,
-        serde_json::to_string(&Playlist::MyVibe).unwrap()
-    );
-
-    save_playlist(&user.user_name, title, &cache_key, &songs)?;
-    info!("Saved {} playlist for {}", title, &user.user_name);
+    let playlist = Playlist::new(PlaylistKind::MyVibe, user.user_name.to_owned());
+    playlist.save(&songs)?;
+    info!("Saved {} playlist for {}", &playlist.kind, &playlist.owner);
 
     Ok(())
-}
-
-fn save_playlist(user: &str, title: &str, key: &str, songs: &[String]) -> Result<(), Error> {
-    let maybe_id: Option<String> =
-        kvstore::get(key)?.and_then(|bytes| String::from_utf8(bytes).ok());
-    let is_cached = maybe_id.is_some();
-    let response = subsonic::create_playlist(user, title, songs, maybe_id)?;
-    match response.response.data {
-        SubsonicResponseData::Success(data) => {
-            if !is_cached {
-                kvstore::set(key, data.playlist.id.clone().into_bytes())?;
-            }
-            Ok(())
-        }
-        SubsonicResponseData::Failed(error) => {
-            if error.error.code != 70 {
-                return Err(anyhow!(
-                    "Failed to save {} playlist: {}",
-                    title,
-                    error.error.message
-                ));
-            }
-            let response = subsonic::create_playlist(user, title, songs, None::<&str>)?;
-            match response.response.data {
-                SubsonicResponseData::Success(data) => {
-                    kvstore::set(key, data.playlist.id.clone().into_bytes())?;
-                    Ok(())
-                }
-                SubsonicResponseData::Failed(error) => Err(anyhow!(
-                    "Failed to re-create playlist {}: {}",
-                    title,
-                    error.error.message
-                )),
-            }
-        }
-    }
 }
