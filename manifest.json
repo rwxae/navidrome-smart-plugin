@@ -52,6 +52,9 @@
     "kvstore": {
       "reason": "To store playlist IDs"
     },
+    "library": {
+      "reason": "To enable matcher"
+    },
     "matcher": {
       "reason": "To resolve track IDs"
     },
