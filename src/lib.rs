@@ -118,7 +118,9 @@ fn generate_user_playlists(am_client: &audiomuse::Client, user: &User) -> Result
                     id: item.item_id,
                     ..SongRef::default()
                 }],
-                MatchOptions::default(),
+                MatchOptions {
+                    username: user.user_name.to_owned(),
+                },
             )
             .ok()
         })
