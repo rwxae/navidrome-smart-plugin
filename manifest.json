@@ -52,6 +52,9 @@
     "kvstore": {
       "reason": "To store playlist IDs"
     },
+    "matcher": {
+      "reason": "To resolve track IDs"
+    },
     "scheduler": {
       "reason": "To schedule playlists generation"
     },
