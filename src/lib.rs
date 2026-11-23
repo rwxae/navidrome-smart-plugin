@@ -7,11 +7,14 @@ use analysis::guess_mood;
 use anyhow::{Error, anyhow};
 use audiomuse::{AlchemyItem, AlchemyReqBody};
 use extism_pdk::info;
+use nd_pdk::host::config;
+use nd_pdk::host::matcher::MatchOptions;
+use nd_pdk::types::SongRef;
 use nd_pdk::{
     host::{
-        config, scheduler,
+        matcher, scheduler,
         scrobbleretriever::{self, ScrobbleOptions},
-        users::{User, get_users},
+        users::{self, User},
     },
     lifecycle::InitProvider,
     scheduler::{CallbackProvider, SchedulerCallbackRequest},
@@ -47,7 +50,8 @@ impl CallbackProvider for SmartPlugin {
             .map_err(|err| nd_pdk::scheduler::Error::new(err.to_string()))?
             .ok_or_else(|| nd_pdk::scheduler::Error::new("config: audiomuse_token is required"))?;
 
-        let users = get_users().map_err(|err| nd_pdk::scheduler::Error::new(err.to_string()))?;
+        let users =
+            users::get_users().map_err(|err| nd_pdk::scheduler::Error::new(err.to_string()))?;
 
         let am_client = audiomuse::Client::new(&audiomuse_url, &audiomuse_token);
 
@@ -104,11 +108,24 @@ fn generate_user_playlists(am_client: &audiomuse::Client, user: &User) -> Result
         temperature: ALCHEMY_TEMPERATURE,
     };
 
-    let alchemy_result = am_client.alchemy(&alchemy_body)?;
-    let songs: Vec<_> = alchemy_result
+    let songs: Vec<_> = am_client
+        .alchemy(&alchemy_body)?
         .results
-        .iter()
-        .map(|i| i.item_id.clone())
+        .into_iter()
+        .filter_map(|item| {
+            matcher::match_songs(
+                vec![SongRef {
+                    id: item.item_id,
+                    ..SongRef::default()
+                }],
+                MatchOptions::default(),
+            )
+            .ok()
+        })
+        .filter_map(|results| results.into_iter().next())
+        .flatten()
+        .filter(|song| song.library_id == 1) // Example filter
+        .map(|song| song.id)
         .collect();
 
     let playlist = Playlist::new(PlaylistKind::MyVibe, user.user_name.to_owned());
