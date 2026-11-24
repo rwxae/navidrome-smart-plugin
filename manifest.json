@@ -8,18 +8,16 @@
     "schema": {
       "type": "object",
       "properties": {
-        "properties": {
-          "audiomuse_url": {
-            "type": "string",
-            "title": "AudioMuse-AI URL",
-            "description": "Base URL for the AudioMuse-AI server",
-            "format": "uri"
-          },
-          "audiomuse_token": {
-            "type": "string",
-            "title": "AudioMuse-AI Access Token",
-            "description": "Optional Bearer token for AudioMuse-AI API authentication. Leave blank if not required."
-          }
+        "audiomuse_url": {
+          "type": "string",
+          "title": "AudioMuse-AI URL",
+          "description": "Base URL for the AudioMuse-AI server",
+          "format": "uri"
+        },
+        "audiomuse_token": {
+          "type": "string",
+          "title": "AudioMuse-AI Access Token",
+          "description": "Optional Bearer token for AudioMuse-AI API authentication. Leave blank if not required."
         }
       },
       "required": [
