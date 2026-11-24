@@ -8,26 +8,23 @@
     "schema": {
       "type": "object",
       "properties": {
-        "audiomuse": {
-          "type": "object",
-          "properties": {
-            "url": {
-              "type": "string",
-              "title": "AudioMuse-AI URL",
-              "description": "Base URL for the AudioMuse-AI server",
-              "format": "uri"
-            },
-            "token": {
-              "type": "string",
-              "title": "AudioMuse-AI Access Token",
-              "description": "Optional Bearer token for AudioMuse-AI API authentication. Leave blank if not required."
-            }
+        "properties": {
+          "audiomuse_url": {
+            "type": "string",
+            "title": "AudioMuse-AI URL",
+            "description": "Base URL for the AudioMuse-AI server",
+            "format": "uri"
           },
-          "required": [
-            "url"
-          ]
+          "audiomuse_token": {
+            "type": "string",
+            "title": "AudioMuse-AI Access Token",
+            "description": "Optional Bearer token for AudioMuse-AI API authentication. Leave blank if not required."
+          }
         }
-      }
+      },
+      "required": [
+        "audiomuse_url"
+      ]
     },
     "uiSchema": {
       "type": "VerticalLayout",
@@ -38,11 +35,11 @@
           "elements": [
             {
               "type": "Control",
-              "scope": "#/properties/audiomuse/url"
+              "scope": "#/properties/audiomuse_url"
             },
             {
               "type": "Control",
-              "scope": "#/properties/audiomuse/token",
+              "scope": "#/properties/audiomuse_token",
               "options": {
                 "format": "password"
               }
