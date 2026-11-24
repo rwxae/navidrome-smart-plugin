@@ -8,43 +8,51 @@
     "schema": {
       "type": "object",
       "properties": {
-        "audiomuse_url": {
-          "type": "string",
-          "title": "AudioMuse URL",
-          "description": "Base URL of your AudioMuse server.",
-          "format": "uri"
-        },
-        "audiomuse_token": {
-          "type": "string",
-          "title": "AudioMuse Access Token",
-          "description": "API token used to authenticate with AudioMuse."
+        "audiomuse": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "title": "AudioMuse-AI URL",
+              "description": "Base URL for the AudioMuse-AI server",
+              "format": "uri"
+            },
+            "token": {
+              "type": "string",
+              "title": "AudioMuse-AI Access Token",
+              "description": "Optional Bearer token for AudioMuse-AI API authentication. Leave blank if not required.",
+              "format": "password"
+            },
+            "required": [
+              "url"
+            ]
+          }
         }
-      },
-      "required": [
-        "audiomuse_url",
-        "audiomuse_token"
-      ]
+      }
     },
     "uiSchema": {
       "type": "VerticalLayout",
       "elements": [
         {
-          "type": "Control",
-          "scope": "#/properties/audiomuse_url"
-        },
-        {
-          "type": "Control",
-          "scope": "#/properties/audiomuse_token",
-          "options": {
-            "format": "password"
-          }
+          "type": "Group",
+          "label": "AuduoMuse-AI configuration",
+          "elements": [
+            {
+              "type": "Control",
+              "scope": "#/properties/audiomuse/url"
+            },
+            {
+              "type": "Control",
+              "scope": "#/properties/audiomuse/token"
+            }
+          ]
         }
       ]
     }
   },
   "permissions": {
     "http": {
-      "reason": "To communicate with Audiomuse AI API",
+      "reason": "To communicate with AudioMuse-AI API",
       "requiredHosts": [
         "*"
       ]

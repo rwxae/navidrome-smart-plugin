@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 pub struct Client {
     api_base: String,
-    access_token: String,
+    access_token: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -78,21 +78,20 @@ pub struct MoodCentroidsResponse {
 }
 
 impl Client {
-    pub fn new(url: &str, access_token: &str) -> Self {
+    pub fn new(api_base: String, access_token: Option<String>) -> Self {
         Self {
-            api_base: url.to_owned(),
-            access_token: access_token.to_owned(),
+            api_base,
+            access_token,
         }
     }
 
     fn headers(&self) -> HashMap<String, String> {
-        HashMap::from([
-            (
-                "Authorization".to_owned(),
-                format!("Bearer {}", self.access_token),
-            ),
-            ("Content-Type".to_owned(), "application/json".to_owned()),
-        ])
+        let mut headers =
+            HashMap::from([("Content-Type".to_owned(), "application/json".to_owned())]);
+        if let Some(token) = &self.access_token {
+            headers.insert("Authorization".to_owned(), format!("Bearer {}", token));
+        }
+        headers
     }
 
     fn send_http(&self, method: &str, url: &str, body: Vec<u8>) -> Result<HTTPResponse, Error> {

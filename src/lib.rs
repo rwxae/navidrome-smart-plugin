@@ -42,19 +42,17 @@ impl InitProvider for SmartPlugin {
 
 impl CallbackProvider for SmartPlugin {
     fn on_callback(&self, _req: SchedulerCallbackRequest) -> Result<(), nd_pdk::scheduler::Error> {
-        let audiomuse_url = config::get("audiomuse_url")
+        let audiomuse_url = config::get("audiomuse/url")
             .map_err(|err| nd_pdk::scheduler::Error::new(err.to_string()))?
-            .ok_or_else(|| nd_pdk::scheduler::Error::new("config: audiomuse_url is required"))?;
-        let audiomuse_token = config::get("audiomuse_token")
-            .map_err(|err| nd_pdk::scheduler::Error::new(err.to_string()))?
-            .ok_or_else(|| nd_pdk::scheduler::Error::new("config: audiomuse_token is required"))?;
+            .ok_or_else(|| nd_pdk::scheduler::Error::new("config: audiomuse/url is required"))?;
+        let audiomuse_token = config::get("audiomuse/token")
+            .map_err(|err| nd_pdk::scheduler::Error::new(err.to_string()))?;
+        let am_client = audiomuse::Client::new(audiomuse_url, audiomuse_token);
 
         let song_filters = SongFilters::default().exclude_libraries(&[2]);
 
         let users =
             users::get_users().map_err(|err| nd_pdk::scheduler::Error::new(err.to_string()))?;
-
-        let am_client = audiomuse::Client::new(&audiomuse_url, &audiomuse_token);
 
         generate_playlists(&am_client, &users, &song_filters)
             .map_err(|err| nd_pdk::scheduler::Error::new(err.to_string()))
