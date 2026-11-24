@@ -22,11 +22,11 @@
               "title": "AudioMuse-AI Access Token",
               "description": "Optional Bearer token for AudioMuse-AI API authentication. Leave blank if not required.",
               "format": "password"
-            },
-            "required": [
-              "url"
-            ]
-          }
+            }
+          },
+          "required": [
+            "url"
+          ]
         }
       }
     },
