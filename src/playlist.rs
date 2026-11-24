@@ -84,8 +84,8 @@ pub struct SongFilters {
 }
 
 impl SongFilters {
-    pub fn exclude_libraries(mut self, libraries: &[i32]) -> Self {
-        self.exclude_libraries.extend_from_slice(libraries);
+    pub fn exclude_libraries(mut self, libraries: impl IntoIterator<Item = i32>) -> Self {
+        self.exclude_libraries.extend(libraries);
         self
     }
 

@@ -6,7 +6,7 @@ mod subsonic;
 use analysis::guess_mood;
 use anyhow::{Error, anyhow};
 use audiomuse::{AlchemyItem, AlchemyReqBody};
-use extism_pdk::info;
+use extism_pdk::{info, warn};
 use nd_pdk::{
     host::{
         config,
@@ -49,7 +49,14 @@ impl CallbackProvider for SmartPlugin {
             .map_err(|err| nd_pdk::scheduler::Error::new(err.to_string()))?;
         let am_client = audiomuse::Client::new(audiomuse_url, audiomuse_token);
 
-        let song_filters = SongFilters::default().exclude_libraries(&[2]);
+        let exclude_libraries: Vec<_> = config::get("exclude_libraries")
+            .map_err(|err| nd_pdk::scheduler::Error::new(err.to_string()))?
+            .iter()
+            .flat_map(|v| v.split(","))
+            .filter_map(|v| v.parse::<i32>().ok())
+            .collect();
+
+        let song_filters = SongFilters::default().exclude_libraries(exclude_libraries);
 
         let users =
             users::get_users().map_err(|err| nd_pdk::scheduler::Error::new(err.to_string()))?;

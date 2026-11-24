@@ -18,6 +18,11 @@
           "type": "string",
           "title": "AudioMuse-AI Access Token",
           "description": "Optional Bearer token for AudioMuse-AI API authentication. Leave blank if not required."
+        },
+        "exclude_libraries": {
+          "type": "string",
+          "title": "Excluded libraries",
+          "description": "Optional comma-separated list of excluded libraries"
         }
       },
       "required": [
@@ -41,6 +46,16 @@
               "options": {
                 "format": "password"
               }
+            }
+          ]
+        },
+        {
+          "type": "Group",
+          "label": "Song filters",
+          "elements": [
+            {
+              "type": "Control",
+              "scope": "#/properties/exclude_libraries"
             }
           ]
         }
