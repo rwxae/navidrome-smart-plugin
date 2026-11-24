@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use anyhow::{Error, anyhow};
-use nd_pdk::host::kvstore;
+use nd_pdk::{host::kvstore, types::Track};
 
 use crate::subsonic::{self, SubsonicResponseData};
 
@@ -69,5 +69,30 @@ impl Playlist {
                 }
             }
         }
+    }
+}
+
+#[derive(Default)]
+pub struct SongFilters {
+    exclude_libraries: Vec<i32>,
+    // Other Ideas:
+    // include_missing: bool (default: false)
+    // rating_gte: Option<i32>
+    // avg_rating_gte: Option<f64>
+    // exclude_tags: Vec<String>
+    // exclude_genres: Vec<String>
+}
+
+impl SongFilters {
+    pub fn exclude_libraries(mut self, libraries: &[i32]) -> Self {
+        self.exclude_libraries.extend_from_slice(libraries);
+        self
+    }
+
+    pub fn matches(&self, track: &Track) -> bool {
+        if self.exclude_libraries.contains(&track.library_id) {
+            return false;
+        }
+        true
     }
 }

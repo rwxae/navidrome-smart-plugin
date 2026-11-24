@@ -7,20 +7,19 @@ use analysis::guess_mood;
 use anyhow::{Error, anyhow};
 use audiomuse::{AlchemyItem, AlchemyReqBody};
 use extism_pdk::info;
-use nd_pdk::host::config;
-use nd_pdk::host::matcher::MatchOptions;
-use nd_pdk::types::SongRef;
 use nd_pdk::{
     host::{
-        matcher, scheduler,
+        config,
+        matcher::{self, MatchOptions},
+        scheduler,
         scrobbleretriever::{self, ScrobbleOptions},
         users::{self, User},
     },
     lifecycle::InitProvider,
     scheduler::{CallbackProvider, SchedulerCallbackRequest},
+    types::SongRef,
 };
-
-use crate::playlist::{Playlist, PlaylistKind};
+use playlist::{Playlist, PlaylistKind, SongFilters};
 
 const SCROBBLES_COUNT: i32 = 15;
 
@@ -50,12 +49,14 @@ impl CallbackProvider for SmartPlugin {
             .map_err(|err| nd_pdk::scheduler::Error::new(err.to_string()))?
             .ok_or_else(|| nd_pdk::scheduler::Error::new("config: audiomuse_token is required"))?;
 
+        let song_filters = SongFilters::default().exclude_libraries(&[2]);
+
         let users =
             users::get_users().map_err(|err| nd_pdk::scheduler::Error::new(err.to_string()))?;
 
         let am_client = audiomuse::Client::new(&audiomuse_url, &audiomuse_token);
 
-        generate_playlists(&am_client, &users)
+        generate_playlists(&am_client, &users, &song_filters)
             .map_err(|err| nd_pdk::scheduler::Error::new(err.to_string()))
     }
 }
@@ -63,11 +64,15 @@ impl CallbackProvider for SmartPlugin {
 nd_pdk::register_lifecycle_init!(SmartPlugin);
 nd_pdk::register_scheduler_callback!(SmartPlugin);
 
-fn generate_playlists(am_client: &audiomuse::Client, users: &[User]) -> Result<(), Error> {
+fn generate_playlists(
+    am_client: &audiomuse::Client,
+    users: &[User],
+    filters: &SongFilters,
+) -> Result<(), Error> {
     let mut errors = Vec::new();
 
     for user in users {
-        if let Err(err) = generate_user_playlists(am_client, user) {
+        if let Err(err) = generate_user_playlists(am_client, user, filters) {
             errors.push(format!("user={}: {}", user.user_name, err));
         }
     }
@@ -82,7 +87,11 @@ fn generate_playlists(am_client: &audiomuse::Client, users: &[User]) -> Result<(
     }
 }
 
-fn generate_user_playlists(am_client: &audiomuse::Client, user: &User) -> Result<(), Error> {
+fn generate_user_playlists(
+    am_client: &audiomuse::Client,
+    user: &User,
+    filters: &SongFilters,
+) -> Result<(), Error> {
     let scrobble_options = ScrobbleOptions {
         descending: true,
         max_items: SCROBBLES_COUNT,
@@ -126,7 +135,7 @@ fn generate_user_playlists(am_client: &audiomuse::Client, user: &User) -> Result
         })
         .filter_map(|results| results.into_iter().next())
         .flatten()
-        .filter(|song| song.library_id == 1) // Example filter
+        .filter(|track| filters.matches(track))
         .map(|song| song.id)
         .collect();
 
