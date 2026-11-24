@@ -20,8 +20,7 @@
             "token": {
               "type": "string",
               "title": "AudioMuse-AI Access Token",
-              "description": "Optional Bearer token for AudioMuse-AI API authentication. Leave blank if not required.",
-              "format": "password"
+              "description": "Optional Bearer token for AudioMuse-AI API authentication. Leave blank if not required."
             }
           },
           "required": [
@@ -43,7 +42,10 @@
             },
             {
               "type": "Control",
-              "scope": "#/properties/audiomuse/token"
+              "scope": "#/properties/audiomuse/token",
+              "options": {
+                "format": "password"
+              }
             }
           ]
         }
