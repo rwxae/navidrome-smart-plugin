@@ -117,13 +117,14 @@ impl SongFilters {
 }
 
 fn get_scrobbles(user: &str, from_timestamp: i64) -> Result<Vec<ScrobbleRef>, Error> {
-    let mut options = ScrobbleOptions {
+    let mut options = Some(ScrobbleOptions {
         from_timestamp: Some(from_timestamp),
         descending: true,
         ..Default::default()
-    };
+    });
     let mut result = Vec::new();
-    while let (scrobbles, Some(next_options)) = scrobbleretriever::get_scrobbles(user, options)? {
+    while let Some(opts) = options.take() {
+        let (scrobbles, next_options) = scrobbleretriever::get_scrobbles(user, opts)?;
         result.extend(scrobbles);
         options = next_options;
     }
