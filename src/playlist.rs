@@ -1,4 +1,7 @@
-use std::fmt::Display;
+use std::{
+    fmt::Display,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use anyhow::{Error, anyhow};
 use extism_pdk::info;
@@ -6,13 +9,13 @@ use nd_pdk::{
     host::{
         kvstore,
         matcher::{self, MatchOptions},
-        scrobbleretriever::{self, ScrobbleOptions},
+        scrobbleretriever::{self, ScrobbleOptions, ScrobbleRef},
     },
     types::{SongRef, Track},
 };
 
 use crate::{
-    analysis::guess_mood,
+    analysis::{calc_listening_profile, guess_mood},
     audiomuse::{self, AlchemyReqBody, AlchemyReqItem},
     subsonic::{self, SubsonicResponseData},
 };
@@ -113,6 +116,20 @@ impl SongFilters {
     }
 }
 
+fn get_scrobbles(user: &str, to_timestamp: i64) -> Result<Vec<ScrobbleRef>, Error> {
+    let mut options = ScrobbleOptions {
+        to_timestamp: Some(to_timestamp),
+        descending: true,
+        ..Default::default()
+    };
+    let mut result = Vec::new();
+    while let (scrobbles, Some(next_options)) = scrobbleretriever::get_scrobbles(user, options)? {
+        result.extend(scrobbles);
+        options = next_options;
+    }
+    Ok(result)
+}
+
 pub fn generate_my_vibe(
     am_client: &audiomuse::Client,
     user: &str,
@@ -169,5 +186,28 @@ pub fn generate_my_vibe(
     let playlist = Playlist::new(PlaylistKind::MyVibe, user.to_owned());
     playlist.save(&songs)?;
 
+    Ok(())
+}
+
+pub fn generate_daily_mixes(
+    _am_client: &audiomuse::Client,
+    user: &str,
+    _filters: &SongFilters,
+) -> Result<(), Error> {
+    let six_months_ago =
+        SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as i64 - 60 * 60 * 24 * 180;
+    let scrobbles = get_scrobbles(user, six_months_ago)?;
+
+    let profile = calc_listening_profile(&scrobbles);
+
+    let mut v = profile.iter().collect::<Vec<_>>();
+
+    v.sort_by(|a, b| b.1.total_cmp(a.1));
+
+    v.iter()
+        .take(10)
+        .for_each(|(id, score)| info!("{user}: {id} - {score}"));
+
+    info!("Listened songs for {user} so far: {}", scrobbles.len());
     Ok(())
 }

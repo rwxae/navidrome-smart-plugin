@@ -11,6 +11,8 @@ use nd_pdk::{
 };
 use playlist::{SongFilters, generate_my_vibe};
 
+use crate::playlist::generate_daily_mixes;
+
 const SCHEDULE_UPDATE_ID: &str = "update";
 
 #[derive(Default)]
@@ -53,6 +55,14 @@ impl CallbackProvider for SmartPlugin {
                 );
             } else {
                 info!("Saved My Vibe mix for {}", &user.user_name);
+            }
+            if let Err(err) = generate_daily_mixes(&am_client, &user.user_name, &song_filters) {
+                warn!(
+                    "Failed to create Daily Mixes for {}: {}",
+                    &user.user_name, err
+                );
+            } else {
+                info!("Saved Daily Mixes for {}", &user.user_name);
             }
         }
 

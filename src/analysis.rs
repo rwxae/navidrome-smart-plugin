@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    f64::consts::LN_2,
     time::{Duration, UNIX_EPOCH},
 };
 
@@ -137,3 +138,30 @@ fn get_best_cluster(clusters: &[CentroidMetadata], genres: &HashMap<String, f64>
         .map(|(_, cluster_id)| cluster_id)
         .expect("At least one cluster for the given mood")
 }
+
+pub fn calc_listening_profile(scrobbles: &[ScrobbleRef]) -> HashMap<String, f64> {
+    let decay_rate = LN_2 / 45.0;
+
+    let mut profile: HashMap<String, f64> = HashMap::new();
+
+    let now_total_seconds = std::time::SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("System time should be after UNIX EPOCH")
+        .as_secs_f64();
+
+    for scrobble in scrobbles {
+        let age = (now_total_seconds - scrobble.submission_time as f64) / 60.0 / 60.0 / 24.0;
+        let decay_factor = (-decay_rate * age).exp();
+        *profile
+            .entry(scrobble.media_file_id.to_owned())
+            .or_insert(0.0) += decay_factor;
+    }
+
+    for weight in profile.values_mut() {
+        *weight = weight.ln_1p();
+    }
+
+    profile
+}
+
+// pub fn cluster_songs(scrobbles: &[ScrobbleRef]) {}
