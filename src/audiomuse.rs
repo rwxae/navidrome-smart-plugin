@@ -6,6 +6,7 @@ use std::{
 use anyhow::{Error, anyhow};
 use nd_pdk::host::http::{self, HTTPResponse};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use urlencoding::encode;
 
 pub struct Client {
     api_base: String,
@@ -136,7 +137,7 @@ impl Client {
     }
 
     pub fn get_score(&self, id: &str) -> Result<ScoreDataResponse, Error> {
-        let url = format!("{}/external/get_score?id={}", self.api_base, id);
+        let url = format!("{}/external/get_score?id={}", self.api_base, encode(id));
         let res = self.send_http("GET", &url, Default::default())?;
         Self::parse_response(res)
     }
@@ -148,7 +149,7 @@ impl Client {
     }
 
     pub fn get_embedding(&self, id: &str) -> Result<GetEmbeddingResponse, Error> {
-        let url = format!("{}/external/get_embedding?id={}", self.api_base, id);
+        let url = format!("{}/external/get_embedding?id={}", self.api_base, encode(id));
         let res = self.send_http("GET", &url, Default::default())?;
         Self::parse_response(res)
     }

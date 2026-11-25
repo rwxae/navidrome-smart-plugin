@@ -3,6 +3,7 @@ use std::fmt::Display;
 use anyhow::Error;
 use nd_pdk::host::subsonicapi;
 use serde::{Deserialize, Serialize};
+use urlencoding::encode;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct SubsonicResponse<T> {
@@ -63,14 +64,16 @@ where
 {
     let songs_param: String = songs
         .into_iter()
-        .map(|id| format!("&songId={}", id))
+        .map(|id| format!("&songId={}", encode(&id.to_string())))
         .collect();
     let mut uri = format!(
         "rest/createPlaylist?u={}&name={}{}",
-        user, name, songs_param
+        encode(user),
+        encode(name),
+        songs_param
     );
     if let Some(id) = id {
-        uri += &format!("&playlistId={}", id);
+        uri += &format!("&playlistId={}", encode(&id.to_string()));
     }
     serde_json::from_str(&subsonicapi::call(&uri)?).map_err(Into::into)
 }
