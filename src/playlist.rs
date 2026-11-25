@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::{Error, anyhow};
-use extism_pdk::info;
+use extism_pdk::{info, warn};
 use nd_pdk::{
     host::{
         kvstore,
@@ -26,12 +26,14 @@ const ALCHEMY_TEMPERATURE: f32 = 0.4;
 
 enum PlaylistKind {
     MyVibe,
+    DailyMix(u8),
 }
 
 impl Display for PlaylistKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::MyVibe => write!(f, "My Vibe"),
+            Self::DailyMix(n) => write!(f, "Daily Mix #{}", n),
         }
     }
 }
@@ -131,6 +133,22 @@ fn get_scrobbles(user: &str, from_timestamp: i64) -> Result<Vec<ScrobbleRef>, Er
     Ok(result)
 }
 
+fn find_song(id: &str, user: &str) -> Option<Track> {
+    matcher::match_songs(
+        vec![SongRef {
+            id: id.to_owned(),
+            ..SongRef::default()
+        }],
+        MatchOptions {
+            username: user.to_owned(),
+        },
+    )
+    .inspect_err(|err| warn!("Failed to match song {}: {}", id, err))
+    .ok()
+    .and_then(|results| results.into_iter().next())
+    .flatten()
+}
+
 pub fn generate_my_vibe(
     am_client: &audiomuse::Client,
     user: &str,
@@ -191,9 +209,9 @@ pub fn generate_my_vibe(
 }
 
 pub fn generate_daily_mixes(
-    _am_client: &audiomuse::Client,
+    am_client: &audiomuse::Client,
     user: &str,
-    _filters: &SongFilters,
+    filters: &SongFilters,
 ) -> Result<(), Error> {
     let six_months_ago =
         SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as i64 - 60 * 60 * 24 * 180;
@@ -201,14 +219,53 @@ pub fn generate_daily_mixes(
 
     let profile = calc_listening_profile(&scrobbles);
 
-    let mut v = profile.iter().collect::<Vec<_>>();
+    // TODO: Cluster songs to get better results
+    // Then do the following steps for each cluster:
 
-    v.sort_by(|a, b| b.1.total_cmp(a.1));
+    let mut listened_songs = profile.iter().collect::<Vec<_>>();
+    listened_songs.sort_by(|a, b| b.1.total_cmp(a.1));
+    let best_songs: Vec<_> = listened_songs
+        .into_iter()
+        .filter_map(|(id, _)| find_song(id, user))
+        .filter(|track| filters.matches(track))
+        .collect();
 
-    v.iter()
-        .take(10)
-        .for_each(|(id, score)| info!("{user}: {id} - {score}"));
+    let items = best_songs
+        .iter()
+        .map(|track| AlchemyReqItem {
+            id: track.id.clone(),
+            op: "ADD".into(),
+            r#type: "song".into(),
+        })
+        .take(34)
+        .collect();
 
-    info!("Listened songs for {user} so far: {}", scrobbles.len());
+    let alchemy_body = AlchemyReqBody {
+        items,
+        n: 34, // Grab a little more so we can skip filtered songs
+        subtract_distance: ALCHEMY_SUBSTRACT_DISTANCE,
+        temperature: ALCHEMY_TEMPERATURE,
+    };
+
+    let mut similar_songs = am_client
+        .alchemy(&alchemy_body)?
+        .results
+        .into_iter()
+        .filter_map(|item| find_song(&item.item_id, user))
+        .filter(|track| filters.matches(track));
+
+    let mut track_list = Vec::with_capacity(51);
+    for (i, song) in best_songs.into_iter().enumerate() {
+        track_list.push(song.id.clone());
+        if i % 2 == 1
+            && let Some(song) = similar_songs.next()
+        {
+            track_list.push(song.id.clone());
+        }
+    }
+
+    let playlist = Playlist::new(PlaylistKind::DailyMix(1), user.to_owned());
+    playlist.save(&track_list)?;
+
     Ok(())
 }
