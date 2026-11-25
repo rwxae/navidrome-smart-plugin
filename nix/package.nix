@@ -15,7 +15,7 @@ buildNavidromeRustPlugin (finalAttrs: {
 
   src = ../.;
 
-  cargoHash = "sha256-Vq5nYb0HKNAn3In9T9zgxCDp1PEOv45bT1pang29Suo=";
+  cargoHash = "sha256-dV894w49zxaXBb63okg77+fuKW0JynNYgShF88EUTqM=";
 
   doCheck = true;
 
