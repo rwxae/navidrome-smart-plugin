@@ -116,9 +116,9 @@ impl SongFilters {
     }
 }
 
-fn get_scrobbles(user: &str, to_timestamp: i64) -> Result<Vec<ScrobbleRef>, Error> {
+fn get_scrobbles(user: &str, from_timestamp: i64) -> Result<Vec<ScrobbleRef>, Error> {
     let mut options = ScrobbleOptions {
-        to_timestamp: Some(to_timestamp),
+        from_timestamp: Some(from_timestamp),
         descending: true,
         ..Default::default()
     };
