@@ -9,9 +9,7 @@ use nd_pdk::{
     lifecycle::InitProvider,
     scheduler::{CallbackProvider, SchedulerCallbackRequest},
 };
-use playlist::{SongFilters, generate_my_vibe};
-
-use crate::playlist::generate_daily_mixes;
+use playlist::{SongFilters, generate_daily_mixes, generate_my_vibe};
 
 const SCHEDULE_UPDATE_ID: &str = "update";
 

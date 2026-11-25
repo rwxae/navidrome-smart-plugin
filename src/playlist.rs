@@ -228,6 +228,7 @@ pub fn generate_daily_mixes(
         .into_iter()
         .filter_map(|(id, _)| find_song(id, user))
         .filter(|track| filters.matches(track))
+        .take(34)
         .collect();
 
     let items = best_songs
@@ -237,7 +238,6 @@ pub fn generate_daily_mixes(
             op: "ADD".into(),
             r#type: "song".into(),
         })
-        .take(34)
         .collect();
 
     let alchemy_body = AlchemyReqBody {
