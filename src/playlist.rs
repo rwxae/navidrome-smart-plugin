@@ -13,7 +13,7 @@ use nd_pdk::{
 
 use crate::{
     analysis::guess_mood,
-    audiomuse::{self, AlchemyItem, AlchemyReqBody},
+    audiomuse::{self, AlchemyReqBody, AlchemyReqItem},
     subsonic::{self, SubsonicResponseData},
 };
 
@@ -130,7 +130,7 @@ pub fn generate_my_vibe(
     let items: Vec<_> = guess_mood(&scrobbles, am_client)?
         .into_iter()
         .inspect(|(mood, cluster)| info!("Seeding: mood:{mood}, cluster:{cluster}"))
-        .map(|(mood, cluster)| AlchemyItem {
+        .map(|(mood, cluster)| AlchemyReqItem {
             id: format!("{mood}:{cluster}"),
             op: "ADD".into(),
             r#type: "mood".into(),

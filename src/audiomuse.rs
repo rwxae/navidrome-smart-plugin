@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::{Error, anyhow};
 use nd_pdk::host::http::{self, HTTPResponse};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 pub struct Client {
     api_base: String,
@@ -20,16 +20,28 @@ pub struct ApiError {
     pub error_message: String,
 }
 
+impl std::fmt::Display for ApiError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{} ({}): {}",
+            self.error_class, self.error_code, self.error_message
+        )
+    }
+}
+
+impl std::error::Error for ApiError {}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct AlchemyReqBody {
-    pub items: Vec<AlchemyItem>,
+    pub items: Vec<AlchemyReqItem>,
     pub n: u32,
     pub subtract_distance: f32,
     pub temperature: f32,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct AlchemyItem {
+pub struct AlchemyReqItem {
     pub id: String,
     pub op: String,
     pub r#type: String,
@@ -46,14 +58,7 @@ pub struct AlchemyResponseItem {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-#[serde(untagged)]
-pub enum GetScoreResponse {
-    Success(ScoreData),
-    Error(ApiError),
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct ScoreData {
+pub struct ScoreDataResponse {
     mood_vector: String,
     other_features: String,
 }
@@ -105,22 +110,33 @@ impl Client {
         http::send(request)?.ok_or_else(|| anyhow!("audiomuse: empty response"))
     }
 
-    pub fn alchemy(&self, body: &AlchemyReqBody) -> Result<AlchemyResponse, Error> {
-        let url = format!("{}/api/alchemy", self.api_base);
-        self.send_http("POST", &url, serde_json::to_vec(body).unwrap())
-            .and_then(|res| serde_json::from_slice(&res.body).map_err(Into::into))
+    fn parse_response<T: DeserializeOwned>(res: HTTPResponse) -> Result<T, Error> {
+        if (200..300).contains(&res.status_code) {
+            serde_json::from_slice(&res.body).map_err(Into::into)
+        } else {
+            serde_json::from_slice::<ApiError>(&res.body)
+                .map_err(Into::<Error>::into)
+                .and_then(|err| Err(Error::new(err)))
+        }
     }
 
-    pub fn get_score(&self, id: &str) -> Result<GetScoreResponse, Error> {
+    pub fn alchemy(&self, body: &AlchemyReqBody) -> Result<AlchemyResponse, Error> {
+        let url = format!("{}/api/alchemy", self.api_base);
+        let body = serde_json::to_vec(body)?;
+        let res = self.send_http("POST", &url, body)?;
+        Self::parse_response(res)
+    }
+
+    pub fn get_score(&self, id: &str) -> Result<ScoreDataResponse, Error> {
         let url = format!("{}/external/get_score?id={}", self.api_base, id);
-        self.send_http("GET", &url, Default::default())
-            .and_then(|res| serde_json::from_slice(&res.body).map_err(Into::into))
+        let res = self.send_http("GET", &url, Default::default())?;
+        Self::parse_response(res)
     }
 
     pub fn mood_centroids(&self) -> Result<MoodCentroidsResponse, Error> {
         let url = format!("{}/api/mood_centroids", self.api_base);
-        self.send_http("GET", &url, Default::default())
-            .and_then(|res| serde_json::from_slice(&res.body).map_err(Into::into))
+        let res = self.send_http("GET", &url, Default::default())?;
+        Self::parse_response(res)
     }
 }
 
@@ -130,8 +146,8 @@ pub struct SongScore {
     pub genres: HashMap<String, f64>,
 }
 
-impl From<ScoreData> for SongScore {
-    fn from(value: ScoreData) -> Self {
+impl From<ScoreDataResponse> for SongScore {
+    fn from(value: ScoreDataResponse) -> Self {
         let mut mood = SongScoreMood::default();
         value
             .other_features

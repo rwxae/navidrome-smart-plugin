@@ -7,7 +7,7 @@ use anyhow::{Error, anyhow};
 use extism_pdk::warn;
 use nd_pdk::host::scrobbleretriever::ScrobbleRef;
 
-use crate::audiomuse::{self, CentroidMetadata, GetScoreResponse, SongScore, SongScoreMood};
+use crate::audiomuse::{self, CentroidMetadata, SongScore, SongScoreMood};
 
 pub fn guess_mood(
     scrobbles: &[ScrobbleRef],
@@ -20,13 +20,7 @@ pub fn guess_mood(
                 .get_score(&scrobble.media_file_id)
                 .inspect_err(|err| warn!("{}", err))
                 .ok()
-                .and_then(|response| match response {
-                    GetScoreResponse::Success(raw) => Some(SongScore::from(raw)),
-                    GetScoreResponse::Error(api_error) => {
-                        warn!("{}", api_error.error_message);
-                        None
-                    }
-                })
+                .map(SongScore::from)
                 .map(|score| {
                     (
                         score,
