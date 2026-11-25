@@ -82,6 +82,14 @@ pub struct MoodCentroidsResponse {
     pub sad: Vec<CentroidMetadata>,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct GetEmbeddingResponse {
+    embedding: Vec<f64>,
+    hyperbolic_radius: f64,
+    item_id: String,
+    poincare_embedding: Vec<f64>,
+}
+
 impl Client {
     pub fn new(api_base: String, access_token: Option<String>) -> Self {
         Self {
@@ -135,6 +143,12 @@ impl Client {
 
     pub fn mood_centroids(&self) -> Result<MoodCentroidsResponse, Error> {
         let url = format!("{}/api/mood_centroids", self.api_base);
+        let res = self.send_http("GET", &url, Default::default())?;
+        Self::parse_response(res)
+    }
+
+    pub fn get_embedding(&self, id: &str) -> Result<GetEmbeddingResponse, Error> {
+        let url = format!("{}/external/get_embedding?id={}", self.api_base, id);
         let res = self.send_http("GET", &url, Default::default())?;
         Self::parse_response(res)
     }
