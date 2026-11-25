@@ -1,11 +1,27 @@
 use std::fmt::Display;
 
 use anyhow::{Error, anyhow};
-use nd_pdk::{host::kvstore, types::Track};
+use extism_pdk::info;
+use nd_pdk::{
+    host::{
+        kvstore,
+        matcher::{self, MatchOptions},
+        scrobbleretriever::{self, ScrobbleOptions},
+    },
+    types::{SongRef, Track},
+};
 
-use crate::subsonic::{self, SubsonicResponseData};
+use crate::{
+    analysis::guess_mood,
+    audiomuse::{self, AlchemyItem, AlchemyReqBody},
+    subsonic::{self, SubsonicResponseData},
+};
 
-pub enum PlaylistKind {
+const PLAYLIST_MAX_SIZE: u32 = 100;
+const ALCHEMY_SUBSTRACT_DISTANCE: f32 = 0.2;
+const ALCHEMY_TEMPERATURE: f32 = 0.4;
+
+enum PlaylistKind {
     MyVibe,
 }
 
@@ -17,13 +33,13 @@ impl Display for PlaylistKind {
     }
 }
 
-pub struct Playlist {
-    pub kind: PlaylistKind,
-    pub owner: String,
+struct Playlist {
+    kind: PlaylistKind,
+    owner: String,
 }
 
 impl Playlist {
-    pub fn new(kind: PlaylistKind, owner: String) -> Self {
+    fn new(kind: PlaylistKind, owner: String) -> Self {
         Self { kind, owner }
     }
 
@@ -31,7 +47,7 @@ impl Playlist {
         format!("{}:{}", self.owner, self.kind)
     }
 
-    pub fn save(&self, songs: &[String]) -> Result<(), Error> {
+    fn save(&self, songs: &[String]) -> Result<(), Error> {
         let cache_key = &self.get_cache_key();
         let title = &self.kind.to_string();
 
@@ -95,4 +111,63 @@ impl SongFilters {
         }
         true
     }
+}
+
+pub fn generate_my_vibe(
+    am_client: &audiomuse::Client,
+    user: &str,
+    filters: &SongFilters,
+) -> Result<(), Error> {
+    let (scrobbles, _) = scrobbleretriever::get_scrobbles(
+        user,
+        ScrobbleOptions {
+            descending: true,
+            max_items: 15,
+            ..Default::default()
+        },
+    )?;
+
+    let items: Vec<_> = guess_mood(&scrobbles, am_client)?
+        .into_iter()
+        .inspect(|(mood, cluster)| info!("Seeding: mood:{mood}, cluster:{cluster}"))
+        .map(|(mood, cluster)| AlchemyItem {
+            id: format!("{mood}:{cluster}"),
+            op: "ADD".into(),
+            r#type: "mood".into(),
+        })
+        .collect();
+
+    let alchemy_body = AlchemyReqBody {
+        items,
+        n: PLAYLIST_MAX_SIZE,
+        subtract_distance: ALCHEMY_SUBSTRACT_DISTANCE,
+        temperature: ALCHEMY_TEMPERATURE,
+    };
+
+    let songs: Vec<_> = am_client
+        .alchemy(&alchemy_body)?
+        .results
+        .into_iter()
+        .filter_map(|item| {
+            matcher::match_songs(
+                vec![SongRef {
+                    id: item.item_id,
+                    ..SongRef::default()
+                }],
+                MatchOptions {
+                    username: user.to_owned(),
+                },
+            )
+            .ok()
+        })
+        .filter_map(|results| results.into_iter().next())
+        .flatten()
+        .filter(|track| filters.matches(track))
+        .map(|song| song.id)
+        .collect();
+
+    let playlist = Playlist::new(PlaylistKind::MyVibe, user.to_owned());
+    playlist.save(&songs)?;
+
+    Ok(())
 }
