@@ -6,9 +6,12 @@ use std::{
 
 use anyhow::{Error, anyhow};
 use extism_pdk::warn;
+use linfa::prelude::*;
+use linfa_clustering::KMeans;
 use nd_pdk::host::scrobbleretriever::ScrobbleRef;
+use ndarray::Array1;
 
-use crate::audiomuse::{self, CentroidMetadata, SongScore, SongScoreMood};
+use crate::audiomuse::{self, CentroidMetadata, GetEmbeddingResponse, SongScore, SongScoreMood};
 
 pub fn guess_mood(
     scrobbles: &[ScrobbleRef],
@@ -164,4 +167,29 @@ pub fn calc_listening_profile(scrobbles: &[ScrobbleRef]) -> HashMap<String, f64>
     profile
 }
 
-// pub fn cluster_songs(scrobbles: &[ScrobbleRef]) {}
+pub fn cluster_songs(songs: &[GetEmbeddingResponse]) -> Result<Vec<usize>, Error> {
+    if songs.is_empty() {
+        return Err(Error::msg(
+            "Failed to perform clustering: empty list of songs",
+        ));
+    }
+
+    let n = songs.len();
+    let n_features = songs[0].embedding.len();
+    let flat: Vec<f64> = songs
+        .iter()
+        .flat_map(|song| song.embedding.iter().copied())
+        .collect();
+
+    let xs = ndarray::Array2::from_shape_vec((n, n_features), flat)?;
+
+    let k = ((n as f64).sqrt().ceil() as usize).min(6);
+
+    let dataset = DatasetBase::from(xs.clone());
+    let model = KMeans::params(k).fit(&dataset)?;
+
+    let mut predictions = Array1::<usize>::zeros(n);
+    model.predict_inplace(&xs, &mut predictions);
+
+    Ok(predictions.into_iter().collect())
+}

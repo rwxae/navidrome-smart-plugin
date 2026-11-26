@@ -85,10 +85,10 @@ pub struct MoodCentroidsResponse {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct GetEmbeddingResponse {
-    embedding: Vec<f64>,
-    hyperbolic_radius: f64,
-    item_id: String,
-    poincare_embedding: Vec<f64>,
+    pub embedding: Vec<f64>,
+    pub hyperbolic_radius: f64,
+    pub item_id: String,
+    pub poincare_embedding: Vec<f64>,
 }
 
 impl Client {

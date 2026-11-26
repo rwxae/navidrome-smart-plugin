@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     fmt::Display,
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -15,7 +16,7 @@ use nd_pdk::{
 };
 
 use crate::{
-    analysis::{calc_listening_profile, guess_mood},
+    analysis::{calc_listening_profile, cluster_songs, guess_mood},
     audiomuse::{self, AlchemyReqBody, AlchemyReqItem},
     subsonic::{self, SubsonicResponseData},
 };
@@ -219,54 +220,72 @@ pub fn generate_daily_mixes(
 
     let profile = calc_listening_profile(&scrobbles);
 
-    // TODO: Cluster songs to get better results
-    // Then do the following steps for each cluster:
-
     let mut listened_songs = profile.iter().collect::<Vec<_>>();
     listened_songs.sort_by(|a, b| b.1.total_cmp(a.1));
     let best_songs: Vec<_> = listened_songs
         .into_iter()
         .filter_map(|(id, _)| find_song(id, user))
         .filter(|track| filters.matches(track))
-        .take(17)
-        .collect();
-
-    let items = best_songs
-        .iter()
-        .map(|track| AlchemyReqItem {
-            id: track.id.clone(),
-            op: "ADD".into(),
-            r#type: "song".into(),
+        .filter_map(|track| {
+            am_client
+                .get_embedding(&track.id)
+                .inspect_err(|err| warn!("Failed to fetch song embedding: {}", err))
+                .ok()
         })
+        .take(150)
         .collect();
 
-    let alchemy_body = AlchemyReqBody {
-        items,
-        n: 50, // Grab a little more so we can skip filtered songs
-        subtract_distance: ALCHEMY_SUBSTRACT_DISTANCE,
-        temperature: ALCHEMY_TEMPERATURE,
-    };
+    let clusters = cluster_songs(&best_songs)?;
 
-    let mut similar_songs = am_client
-        .alchemy(&alchemy_body)?
-        .results
-        .into_iter()
-        .filter_map(|item| find_song(&item.item_id, user))
-        .filter(|track| filters.matches(track));
-
-    let mut track_list = Vec::with_capacity(51);
-    for song in best_songs {
-        track_list.push(song.id.clone());
-        if let Some(similar_song) = similar_songs.next() {
-            track_list.push(similar_song.id.clone());
-        }
-        if let Some(similar_song) = similar_songs.next() {
-            track_list.push(similar_song.id.clone());
-        }
+    let mut songs_by_cluster: HashMap<usize, Vec<String>> = std::collections::HashMap::new();
+    for (song, cluster) in best_songs.into_iter().zip(clusters) {
+        songs_by_cluster
+            .entry(cluster)
+            .or_default()
+            .push(song.item_id.clone());
     }
 
-    let playlist = Playlist::new(PlaylistKind::DailyMix(1), user.to_owned());
-    playlist.save(&track_list)?;
+    for (cluster, mut songs) in songs_by_cluster {
+        songs.sort_by(|a, b| profile[b].total_cmp(&profile[a]));
+        let best_songs: Vec<_> = songs.into_iter().take(17).collect();
+
+        let items = best_songs
+            .iter()
+            .map(|id| AlchemyReqItem {
+                id: id.clone(),
+                op: "ADD".into(),
+                r#type: "song".into(),
+            })
+            .collect();
+
+        let alchemy_body = AlchemyReqBody {
+            items,
+            n: 50, // Grab a little more so we can skip filtered songs
+            subtract_distance: ALCHEMY_SUBSTRACT_DISTANCE,
+            temperature: ALCHEMY_TEMPERATURE,
+        };
+
+        let mut similar_songs = am_client
+            .alchemy(&alchemy_body)?
+            .results
+            .into_iter()
+            .filter_map(|item| find_song(&item.item_id, user))
+            .filter(|track| filters.matches(track));
+
+        let mut track_list = Vec::with_capacity(51);
+        for song in best_songs {
+            track_list.push(song);
+            if let Some(similar_song) = similar_songs.next() {
+                track_list.push(similar_song.id.clone());
+            }
+            if let Some(similar_song) = similar_songs.next() {
+                track_list.push(similar_song.id.clone());
+            }
+        }
+
+        let playlist = Playlist::new(PlaylistKind::DailyMix((cluster + 1) as u8), user.to_owned());
+        playlist.save(&track_list)?;
+    }
 
     Ok(())
 }
