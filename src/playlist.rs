@@ -23,7 +23,7 @@ use crate::{
 
 const PLAYLIST_MAX_SIZE: u32 = 100;
 const ALCHEMY_SUBSTRACT_DISTANCE: f32 = 0.2;
-const ALCHEMY_TEMPERATURE: f32 = 0.4;
+const ALCHEMY_TEMPERATURE: f32 = 0.2;
 
 enum PlaylistKind {
     MyVibe,
