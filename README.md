@@ -43,7 +43,7 @@ Filter out unwanted tracks from the clusters.
 
 For each cluster:
 
-1. Take N = min(top_songs, 30) songs (sorted by preference weight)
+1. Take N = min(top_songs, 17) songs (sorted by preference weight)
 2. Run Alchemy on these songs to get similar tracks
 3. Apply filters for similar tracks
 4. Take 50 - N similar tracks and add them to the mixture.

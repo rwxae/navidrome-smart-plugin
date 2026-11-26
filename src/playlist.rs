@@ -228,7 +228,7 @@ pub fn generate_daily_mixes(
         .into_iter()
         .filter_map(|(id, _)| find_song(id, user))
         .filter(|track| filters.matches(track))
-        .take(34)
+        .take(17)
         .collect();
 
     let items = best_songs
@@ -242,7 +242,7 @@ pub fn generate_daily_mixes(
 
     let alchemy_body = AlchemyReqBody {
         items,
-        n: 34, // Grab a little more so we can skip filtered songs
+        n: 50, // Grab a little more so we can skip filtered songs
         subtract_distance: ALCHEMY_SUBSTRACT_DISTANCE,
         temperature: ALCHEMY_TEMPERATURE,
     };
@@ -255,12 +255,13 @@ pub fn generate_daily_mixes(
         .filter(|track| filters.matches(track));
 
     let mut track_list = Vec::with_capacity(51);
-    for (i, song) in best_songs.into_iter().enumerate() {
+    for song in best_songs {
         track_list.push(song.id.clone());
-        if i % 2 == 1
-            && let Some(song) = similar_songs.next()
-        {
-            track_list.push(song.id.clone());
+        if let Some(similar_song) = similar_songs.next() {
+            track_list.push(similar_song.id.clone());
+        }
+        if let Some(similar_song) = similar_songs.next() {
+            track_list.push(similar_song.id.clone());
         }
     }
 
