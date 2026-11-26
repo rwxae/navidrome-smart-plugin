@@ -205,8 +205,6 @@ pub fn generate_daily_mixes(
         SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as i64 - 60 * 60 * 24 * 180;
     let scrobbles = get_scrobbles(user, six_months_ago)?;
 
-    info!("Scrobbles Count: {}", scrobbles.len());
-
     let profile = calc_listening_profile(&scrobbles);
 
     let mut listened_songs = profile.iter().collect::<Vec<_>>();
@@ -224,11 +222,7 @@ pub fn generate_daily_mixes(
         .take(150)
         .collect();
 
-    info!("Best Songs Count: {}", best_songs.len());
-
     let clusters = cluster_songs(&best_songs)?;
-
-    info!("Clusters Items Count: {}", clusters.len());
 
     let mut songs_by_cluster: HashMap<usize, Vec<String>> = std::collections::HashMap::new();
     for (song, cluster) in best_songs.into_iter().zip(clusters) {
@@ -241,8 +235,6 @@ pub fn generate_daily_mixes(
     for (cluster, mut songs) in songs_by_cluster {
         songs.sort_by(|a, b| profile[b].total_cmp(&profile[a]));
         let best_songs: Vec<_> = songs.into_iter().take(17).collect();
-
-        info!("Songs in Cluster #{}: {}", cluster, best_songs.len());
 
         let items = best_songs
             .iter()
@@ -277,8 +269,6 @@ pub fn generate_daily_mixes(
                 track_list.push(similar_song.id.clone());
             }
         }
-
-        info!("Track List Size: {}", track_list.len());
 
         let playlist = Playlist::new(PlaylistKind::DailyMix((cluster + 1) as u8), user.to_owned());
         playlist.save(&track_list)?;
