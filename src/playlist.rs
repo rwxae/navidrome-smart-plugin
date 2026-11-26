@@ -185,20 +185,7 @@ pub fn generate_my_vibe(
         .alchemy(&alchemy_body)?
         .results
         .into_iter()
-        .filter_map(|item| {
-            matcher::match_songs(
-                vec![SongRef {
-                    id: item.item_id,
-                    ..SongRef::default()
-                }],
-                MatchOptions {
-                    username: user.to_owned(),
-                },
-            )
-            .ok()
-        })
-        .filter_map(|results| results.into_iter().next())
-        .flatten()
+        .filter_map(|item| find_song(&item.item_id, user))
         .filter(|track| filters.matches(track))
         .map(|song| song.id)
         .collect();
