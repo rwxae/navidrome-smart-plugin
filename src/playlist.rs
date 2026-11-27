@@ -22,7 +22,7 @@ use crate::{
 };
 
 const PLAYLIST_MAX_SIZE: u32 = 100;
-const ALCHEMY_SUBSTRACT_DISTANCE: f32 = 0.2;
+const ALCHEMY_SUBTRACT_DISTANCE: f32 = 0.2;
 const ALCHEMY_TEMPERATURE: f32 = 0.2;
 
 enum PlaylistKind {
@@ -177,7 +177,7 @@ pub fn generate_my_vibe(
     let alchemy_body = AlchemyReqBody {
         items,
         n: PLAYLIST_MAX_SIZE,
-        subtract_distance: ALCHEMY_SUBSTRACT_DISTANCE,
+        subtract_distance: ALCHEMY_SUBTRACT_DISTANCE,
         temperature: ALCHEMY_TEMPERATURE,
     };
 
@@ -248,7 +248,7 @@ pub fn generate_daily_mixes(
         let alchemy_body = AlchemyReqBody {
             items,
             n: 50, // Grab a little more so we can skip filtered songs
-            subtract_distance: ALCHEMY_SUBSTRACT_DISTANCE,
+            subtract_distance: ALCHEMY_SUBTRACT_DISTANCE,
             temperature: ALCHEMY_TEMPERATURE,
         };
 
