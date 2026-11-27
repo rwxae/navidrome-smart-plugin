@@ -219,7 +219,7 @@ pub fn generate_daily_mixes(
                 .inspect_err(|err| warn!("Failed to fetch song embedding: {}", err))
                 .ok()
         })
-        .take(150)
+        .take(250)
         .collect();
 
     let clusters = cluster_songs(&best_songs)?;
@@ -268,6 +268,12 @@ pub fn generate_daily_mixes(
             if let Some(similar_song) = similar_songs.next() {
                 track_list.push(similar_song.id.clone());
             }
+        }
+
+        while track_list.len() < 51
+            && let Some(track) = similar_songs.next()
+        {
+            track_list.push(track.id.clone());
         }
 
         let playlist = Playlist::new(PlaylistKind::DailyMix((cluster + 1) as u8), user.to_owned());
